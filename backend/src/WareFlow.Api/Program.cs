@@ -1,5 +1,6 @@
 using WareFlow.Api.ExceptionHandling;
 using WareFlow.Application.Categories;
+using WareFlow.Application.Warehouses;
 using WareFlow.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,6 +24,11 @@ builder.Services.AddInfrastructure(connectionString);
 builder.Services.AddScoped<
     ICategoryService,
     CategoryService
+>();
+
+builder.Services.AddScoped<
+    IWarehouseService,
+    WarehouseService
 >();
 
 var app = builder.Build();

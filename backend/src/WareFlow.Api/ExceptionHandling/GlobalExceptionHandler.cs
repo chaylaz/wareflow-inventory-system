@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using WareFlow.Application.Categories;
+using WareFlow.Application.Warehouses;
 
 namespace WareFlow.Api.ExceptionHandling;
 
@@ -27,6 +28,18 @@ public sealed class GlobalExceptionHandler(
                 exception.Message
             ),
 
+            WarehouseNotFoundException => (
+                StatusCodes.Status404NotFound,
+                "Warehouse not found.",
+                exception.Message
+            ),
+
+            WarehouseAlreadyExistsException => (
+                StatusCodes.Status409Conflict,
+                "Warehouse already exists.",
+                exception.Message
+            ),
+
             ArgumentException => (
                 StatusCodes.Status400BadRequest,
                 "Invalid request.",
@@ -36,27 +49,16 @@ public sealed class GlobalExceptionHandler(
             _ => (
                 StatusCodes.Status500InternalServerError,
                 "Internal server error.",
-                "An unexpected error occurred."
+                "An unexpected error occurred while processing the request."
             )
         };
 
-        if (statusCode >= StatusCodes.Status500InternalServerError)
-        {
-            logger.LogError(
-                exception,
-                "An unhandled exception occurred while processing {Method} {Path}.",
-                httpContext.Request.Method,
-                httpContext.Request.Path
-            );
-        }
-        else
-        {
-            logger.LogWarning(
-                exception,
-                "Request failed with status code {StatusCode}.",
-                statusCode
-            );
-        }
+        LogException(
+            exception,
+            statusCode,
+            httpContext.Request.Method,
+            httpContext.Request.Path
+        );
 
         var problemDetails = new ProblemDetails
         {
@@ -79,5 +81,32 @@ public sealed class GlobalExceptionHandler(
         );
 
         return true;
+    }
+
+    private void LogException(
+        Exception exception,
+        int statusCode,
+        string method,
+        PathString path)
+    {
+        if (statusCode >= StatusCodes.Status500InternalServerError)
+        {
+            logger.LogError(
+                exception,
+                "An unhandled exception occurred while processing {Method} {Path}.",
+                method,
+                path
+            );
+
+            return;
+        }
+
+        logger.LogWarning(
+            exception,
+            "Request {Method} {Path} failed with status code {StatusCode}.",
+            method,
+            path,
+            statusCode
+        );
     }
 }
