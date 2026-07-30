@@ -1,0 +1,241 @@
+.toast-region {
+    position: fixed;
+    z-index: 200;
+    top: 96px;
+    right: 24px;
+    width: min(380px, calc(100vw - 32px));
+    pointer-events: none;
+}
+
+.toast-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+    padding: 16px;
+    border: 1px solid;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow:
+        0 20px 50px rgb(15 23 42 / 18%);
+    pointer-events: auto;
+    animation: toast-enter 220ms ease both;
+}
+
+.toast-success {
+    border-color: #bbf7d0;
+}
+
+.toast-error {
+    border-color: #fecaca;
+}
+
+.toast-icon {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    place-items: center;
+    border-radius: 11px;
+}
+
+.toast-success .toast-icon {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.toast-error .toast-icon {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.toast-content {
+    min-width: 0;
+    flex: 1;
+}
+
+.toast-content strong {
+    display: block;
+    color: #0f172a;
+    font-size: 14px;
+}
+
+.toast-content p {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.toast-close-button {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+}
+
+.toast-close-button:hover {
+    background: #f1f5f9;
+    color: #334155;
+}
+
+.confirm-backdrop {
+    position: fixed;
+    z-index: 150;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgb(15 23 42 / 58%);
+    backdrop-filter: blur(4px);
+}
+
+.confirm-dialog {
+    width: min(440px, 100%);
+    overflow: hidden;
+    border: 1px solid rgb(255 255 255 / 70%);
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow:
+        0 30px 80px rgb(15 23 42 / 28%);
+    animation: confirm-enter 190ms ease both;
+}
+
+.confirm-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 24px 24px 0;
+}
+
+.confirm-icon {
+    display: grid;
+    width: 48px;
+    height: 48px;
+    place-items: center;
+    border-radius: 14px;
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.confirm-close-button {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 9px;
+    background: #f1f5f9;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.confirm-close-button:hover:not(:disabled) {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.confirm-content {
+    padding: 20px 24px 24px;
+}
+
+.confirm-content h2 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 21px;
+    letter-spacing: -0.025em;
+}
+
+.confirm-content p {
+    margin: 10px 0 0;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+.confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 18px 24px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.danger-button {
+    padding: 11px 17px;
+    border: 1px solid #dc2626;
+    border-radius: 9px;
+    background: #dc2626;
+    color: #ffffff;
+    cursor: pointer;
+    font-weight: 700;
+    transition:
+        transform 150ms ease,
+        background 150ms ease,
+        box-shadow 150ms ease;
+}
+
+.danger-button:hover:not(:disabled) {
+    background: #b91c1c;
+    box-shadow:
+        0 9px 20px rgb(220 38 38 / 22%);
+    transform: translateY(-1px);
+}
+
+.danger-button:disabled,
+.confirm-close-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+@keyframes toast-enter {
+    from {
+        opacity: 0;
+        transform: translateX(24px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes confirm-enter {
+    from {
+        opacity: 0;
+        transform:
+            translateY(12px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform:
+            translateY(0) scale(1);
+    }
+}
+
+@media (max-width: 600px) {
+    .toast-region {
+        top: 16px;
+        right: 16px;
+        left: 16px;
+        width: auto;
+    }
+
+    .confirm-backdrop {
+        align-items: end;
+        padding: 12px;
+    }
+
+    .confirm-dialog {
+        width: 100%;
+    }
+}

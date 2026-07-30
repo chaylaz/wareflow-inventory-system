@@ -10,6 +10,7 @@ import DashboardPage from "./pages/DashboardPage";
 import WarehousesPage from "./pages/WarehousesPage";
 
 import "./App.css";
+import "./styles/feedback.css";
 import "./styles/uiRefinement.css";
 
 function App() {

@@ -5,42 +5,67 @@ import {
   type FormEvent,
 } from "react";
 
+import ConfirmDialog from "../components/ConfirmDialog";
 import Modal from "../components/Modal";
+import Toast from "../components/Toast";
 import { api } from "../lib/api";
 import { getApiErrorMessage } from "../lib/getApiErrorMessage";
 import type { Warehouse } from "../types/inventory";
 
 import "../styles/tableActions.css";
 
-type WarehouseModalMode = "create" | "edit" | null;
+type WarehouseModalMode =
+  | "create"
+  | "edit"
+  | null;
+
+type ToastState = {
+  type: "success" | "error";
+  message: string;
+} | null;
 
 function WarehousesPage() {
-  const [warehouses, setWarehouses] = useState<Warehouse[]>(
-    []
-  );
+  const [warehouses, setWarehouses] =
+    useState<Warehouse[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  const [toast, setToast] =
+    useState<ToastState>(null);
 
   const [modalMode, setModalMode] =
     useState<WarehouseModalMode>(null);
 
-  const [editingWarehouseId, setEditingWarehouseId] =
-    useState<string | null>(null);
+  const [
+    editingWarehouseId,
+    setEditingWarehouseId,
+  ] = useState<string | null>(null);
 
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
-  const [address, setAddress] = useState("");
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [
+    warehouseToDeactivate,
+    setWarehouseToDeactivate,
+  ] = useState<Warehouse | null>(null);
 
   const [
     deactivatingWarehouseId,
     setDeactivatingWarehouseId,
   ] = useState<string | null>(null);
 
-  const [formError, setFormError] = useState("");
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
+
+  const [formError, setFormError] =
+    useState("");
+
+  const closeToast = useCallback(() => {
+    setToast(null);
+  }, []);
 
   const loadWarehouses = useCallback(async () => {
     try {
@@ -69,7 +94,9 @@ function WarehousesPage() {
     void loadWarehouses();
   }, [loadWarehouses]);
 
-  function sortWarehouses(warehouseList: Warehouse[]) {
+  function sortWarehouses(
+    warehouseList: Warehouse[]
+  ) {
     return [...warehouseList].sort(
       (firstWarehouse, secondWarehouse) =>
         firstWarehouse.code.localeCompare(
@@ -81,27 +108,23 @@ function WarehousesPage() {
   function openCreateModal() {
     setModalMode("create");
     setEditingWarehouseId(null);
-
     setCode("");
     setName("");
     setAddress("");
-
     setFormError("");
-    setSuccessMessage("");
-    setErrorMessage("");
+    setToast(null);
   }
 
-  function openEditModal(warehouse: Warehouse) {
+  function openEditModal(
+    warehouse: Warehouse
+  ) {
     setModalMode("edit");
     setEditingWarehouseId(warehouse.id);
-
     setCode(warehouse.code);
     setName(warehouse.name);
     setAddress(warehouse.address ?? "");
-
     setFormError("");
-    setSuccessMessage("");
-    setErrorMessage("");
+    setToast(null);
   }
 
   function closeModal() {
@@ -114,17 +137,29 @@ function WarehousesPage() {
     setFormError("");
   }
 
+  function closeConfirmDialog() {
+    if (deactivatingWarehouseId !== null) {
+      return;
+    }
+
+    setWarehouseToDeactivate(null);
+  }
+
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
 
-    const normalizedCode = code.trim().toUpperCase();
+    const normalizedCode =
+      code.trim().toUpperCase();
+
     const normalizedName = name.trim();
     const normalizedAddress = address.trim();
 
     if (!normalizedCode) {
-      setFormError("Kode gudang wajib diisi.");
+      setFormError(
+        "Kode gudang wajib diisi."
+      );
       return;
     }
 
@@ -136,7 +171,9 @@ function WarehousesPage() {
     }
 
     if (!normalizedName) {
-      setFormError("Nama gudang wajib diisi.");
+      setFormError(
+        "Nama gudang wajib diisi."
+      );
       return;
     }
 
@@ -163,9 +200,11 @@ function WarehousesPage() {
           ])
         );
 
-        setSuccessMessage(
-          `Gudang "${response.data.name}" berhasil ditambahkan.`
-        );
+        setToast({
+          type: "success",
+          message:
+            `Gudang "${response.data.name}" berhasil ditambahkan.`,
+        });
       }
 
       if (
@@ -187,14 +226,15 @@ function WarehousesPage() {
           )
         );
 
-        setSuccessMessage(
-          `Gudang "${response.data.name}" berhasil diperbarui.`
-        );
+        setToast({
+          type: "success",
+          message:
+            `Gudang "${response.data.name}" berhasil diperbarui.`,
+        });
       }
 
       setModalMode(null);
       setEditingWarehouseId(null);
-
       setCode("");
       setName("");
       setAddress("");
@@ -214,24 +254,18 @@ function WarehousesPage() {
     }
   }
 
-  async function handleDeactivate(
-    warehouse: Warehouse
-  ) {
-    if (!warehouse.isActive) {
+  async function handleConfirmDeactivate() {
+    if (warehouseToDeactivate === null) {
       return;
     }
 
-    const isConfirmed = window.confirm(
-      `Nonaktifkan gudang "${warehouse.name}"?`
-    );
-
-    if (!isConfirmed) {
-      return;
-    }
+    const warehouse = warehouseToDeactivate;
 
     try {
-      setDeactivatingWarehouseId(warehouse.id);
-      setSuccessMessage("");
+      setDeactivatingWarehouseId(
+        warehouse.id
+      );
+
       setErrorMessage("");
 
       await api.delete(
@@ -239,31 +273,37 @@ function WarehousesPage() {
       );
 
       setWarehouses((currentWarehouses) =>
-        currentWarehouses.map((currentWarehouse) =>
-          currentWarehouse.id === warehouse.id
-            ? {
-                ...currentWarehouse,
-                isActive: false,
-                updatedAtUtc: new Date().toISOString(),
-              }
-            : currentWarehouse
+        currentWarehouses.map(
+          (currentWarehouse) =>
+            currentWarehouse.id === warehouse.id
+              ? {
+                  ...currentWarehouse,
+                  isActive: false,
+                  updatedAtUtc:
+                    new Date().toISOString(),
+                }
+              : currentWarehouse
         )
       );
 
-      setSuccessMessage(
-        `Gudang "${warehouse.name}" berhasil dinonaktifkan.`
-      );
+      setToast({
+        type: "success",
+        message:
+          `Gudang "${warehouse.name}" berhasil dinonaktifkan.`,
+      });
     } catch (error) {
       console.error(error);
 
-      setErrorMessage(
-        getApiErrorMessage(
+      setToast({
+        type: "error",
+        message: getApiErrorMessage(
           error,
           "Gagal menonaktifkan gudang."
-        )
-      );
+        ),
+      });
     } finally {
       setDeactivatingWarehouseId(null);
+      setWarehouseToDeactivate(null);
     }
   }
 
@@ -281,12 +321,15 @@ function WarehousesPage() {
     <section className="page-section">
       <div className="page-heading">
         <div>
-          <p className="page-eyebrow">Master data</p>
+          <p className="page-eyebrow">
+            Master data
+          </p>
 
           <h1>Warehouses</h1>
 
           <p>
-            Kelola lokasi gudang untuk penyimpanan barang.
+            Kelola lokasi gudang untuk
+            penyimpanan barang.
           </p>
         </div>
 
@@ -298,12 +341,6 @@ function WarehousesPage() {
           Tambah gudang
         </button>
       </div>
-
-      {successMessage && (
-        <div className="message-card message-success">
-          {successMessage}
-        </div>
-      )}
 
       {isLoading && (
         <div className="message-card">
@@ -343,77 +380,66 @@ function WarehousesPage() {
               </thead>
 
               <tbody>
-                {warehouses.map((warehouse) => {
-                  const isDeactivating =
-                    deactivatingWarehouseId ===
-                    warehouse.id;
+                {warehouses.map((warehouse) => (
+                  <tr key={warehouse.id}>
+                    <td>
+                      <span className="code-badge">
+                        {warehouse.code}
+                      </span>
+                    </td>
 
-                  return (
-                    <tr key={warehouse.id}>
-                      <td>
-                        <span className="code-badge">
-                          {warehouse.code}
-                        </span>
-                      </td>
+                    <td className="primary-cell">
+                      {warehouse.name}
+                    </td>
 
-                      <td className="primary-cell">
-                        {warehouse.name}
-                      </td>
+                    <td>
+                      {warehouse.address ?? "-"}
+                    </td>
 
-                      <td>
-                        {warehouse.address ?? "-"}
-                      </td>
+                    <td>
+                      <span
+                        className={
+                          warehouse.isActive
+                            ? "status-badge status-active"
+                            : "status-badge status-inactive"
+                        }
+                      >
+                        {warehouse.isActive
+                          ? "Aktif"
+                          : "Tidak aktif"}
+                      </span>
+                    </td>
 
-                      <td>
-                        <span
-                          className={
-                            warehouse.isActive
-                              ? "status-badge status-active"
-                              : "status-badge status-inactive"
+                    <td>
+                      <div className="table-actions">
+                        <button
+                          className="action-button action-edit"
+                          type="button"
+                          onClick={() =>
+                            openEditModal(warehouse)
+                          }
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          className="action-button action-danger"
+                          type="button"
+                          disabled={!warehouse.isActive}
+                          onClick={() =>
+                            setWarehouseToDeactivate(
+                              warehouse
+                            )
                           }
                         >
                           {warehouse.isActive
-                            ? "Aktif"
-                            : "Tidak aktif"}
-                        </span>
-                      </td>
-
-                      <td>
-                        <div className="table-actions">
-                          <button
-                            className="action-button action-edit"
-                            type="button"
-                            onClick={() =>
-                              openEditModal(warehouse)
-                            }
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            className="action-button action-danger"
-                            type="button"
-                            disabled={
-                              !warehouse.isActive ||
-                              isDeactivating
-                            }
-                            onClick={() =>
-                              void handleDeactivate(
-                                warehouse
-                              )
-                            }
-                          >
-                            {isDeactivating
-                              ? "Memproses..."
-                              : warehouse.isActive
-                                ? "Nonaktifkan"
-                                : "Nonaktif"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                            ? "Nonaktifkan"
+                            : "Nonaktif"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -524,6 +550,32 @@ function WarehousesPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={warehouseToDeactivate !== null}
+        title="Nonaktifkan gudang?"
+        description={
+          warehouseToDeactivate
+            ? `Gudang "${warehouseToDeactivate.name}" akan berubah menjadi tidak aktif. Data gudang tetap tersimpan di dalam sistem.`
+            : ""
+        }
+        confirmLabel="Nonaktifkan"
+        isProcessing={
+          deactivatingWarehouseId !== null
+        }
+        onCancel={closeConfirmDialog}
+        onConfirm={() =>
+          void handleConfirmDeactivate()
+        }
+      />
+
+      {toast && (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          onClose={closeToast}
+        />
+      )}
     </section>
   );
 }

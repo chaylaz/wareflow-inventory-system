@@ -5,7 +5,9 @@ import {
   type FormEvent,
 } from "react";
 
+import ConfirmDialog from "../components/ConfirmDialog";
 import Modal from "../components/Modal";
+import Toast from "../components/Toast";
 import { api } from "../lib/api";
 import { getApiErrorMessage } from "../lib/getApiErrorMessage";
 import type { Category } from "../types/inventory";
@@ -14,12 +16,20 @@ import "../styles/tableActions.css";
 
 type CategoryModalMode = "create" | "edit" | null;
 
+type ToastState = {
+  type: "success" | "error";
+  message: string;
+} | null;
+
 function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] =
+    useState<Category[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+
+  const [toast, setToast] =
+    useState<ToastState>(null);
 
   const [modalMode, setModalMode] =
     useState<CategoryModalMode>(null);
@@ -27,14 +37,29 @@ function CategoriesPage() {
   const [editingCategoryId, setEditingCategoryId] =
     useState<string | null>(null);
 
+  const [
+    categoryToDeactivate,
+    setCategoryToDeactivate,
+  ] = useState<Category | null>(null);
+
+  const [
+    deactivatingCategoryId,
+    setDeactivatingCategoryId,
+  ] = useState<string | null>(null);
+
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const [description, setDescription] =
+    useState("");
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [deactivatingCategoryId, setDeactivatingCategoryId] =
-    useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
 
-  const [formError, setFormError] = useState("");
+  const [formError, setFormError] =
+    useState("");
+
+  const closeToast = useCallback(() => {
+    setToast(null);
+  }, []);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -63,10 +88,14 @@ function CategoriesPage() {
     void loadCategories();
   }, [loadCategories]);
 
-  function sortCategories(categoryList: Category[]) {
+  function sortCategories(
+    categoryList: Category[]
+  ) {
     return [...categoryList].sort(
       (firstCategory, secondCategory) =>
-        firstCategory.name.localeCompare(secondCategory.name)
+        firstCategory.name.localeCompare(
+          secondCategory.name
+        )
     );
   }
 
@@ -76,7 +105,7 @@ function CategoriesPage() {
     setName("");
     setDescription("");
     setFormError("");
-    setSuccessMessage("");
+    setToast(null);
   }
 
   function openEditModal(category: Category) {
@@ -85,7 +114,7 @@ function CategoriesPage() {
     setName(category.name);
     setDescription(category.description ?? "");
     setFormError("");
-    setSuccessMessage("");
+    setToast(null);
   }
 
   function closeModal() {
@@ -98,16 +127,27 @@ function CategoriesPage() {
     setFormError("");
   }
 
+  function closeConfirmDialog() {
+    if (deactivatingCategoryId !== null) {
+      return;
+    }
+
+    setCategoryToDeactivate(null);
+  }
+
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
 
     const normalizedName = name.trim();
-    const normalizedDescription = description.trim();
+    const normalizedDescription =
+      description.trim();
 
     if (!normalizedName) {
-      setFormError("Nama kategori wajib diisi.");
+      setFormError(
+        "Nama kategori wajib diisi."
+      );
       return;
     }
 
@@ -117,7 +157,8 @@ function CategoriesPage() {
 
       const requestBody = {
         name: normalizedName,
-        description: normalizedDescription || null,
+        description:
+          normalizedDescription || null,
       };
 
       if (modalMode === "create") {
@@ -133,9 +174,11 @@ function CategoriesPage() {
           ])
         );
 
-        setSuccessMessage(
-          `Kategori "${response.data.name}" berhasil ditambahkan.`
-        );
+        setToast({
+          type: "success",
+          message:
+            `Kategori "${response.data.name}" berhasil ditambahkan.`,
+        });
       }
 
       if (
@@ -157,9 +200,11 @@ function CategoriesPage() {
           )
         );
 
-        setSuccessMessage(
-          `Kategori "${response.data.name}" berhasil diperbarui.`
-        );
+        setToast({
+          type: "success",
+          message:
+            `Kategori "${response.data.name}" berhasil diperbarui.`,
+        });
       }
 
       setModalMode(null);
@@ -182,51 +227,53 @@ function CategoriesPage() {
     }
   }
 
-  async function handleDeactivate(category: Category) {
-    if (!category.isActive) {
+  async function handleConfirmDeactivate() {
+    if (categoryToDeactivate === null) {
       return;
     }
 
-    const isConfirmed = window.confirm(
-      `Nonaktifkan kategori "${category.name}"?`
-    );
-
-    if (!isConfirmed) {
-      return;
-    }
+    const category = categoryToDeactivate;
 
     try {
       setDeactivatingCategoryId(category.id);
-      setSuccessMessage("");
+      setErrorMessage("");
 
-      await api.delete(`/api/categories/${category.id}`);
+      await api.delete(
+        `/api/categories/${category.id}`
+      );
 
       setCategories((currentCategories) =>
-        currentCategories.map((currentCategory) =>
-          currentCategory.id === category.id
-            ? {
-                ...currentCategory,
-                isActive: false,
-                updatedAtUtc: new Date().toISOString(),
-              }
-            : currentCategory
+        currentCategories.map(
+          (currentCategory) =>
+            currentCategory.id === category.id
+              ? {
+                  ...currentCategory,
+                  isActive: false,
+                  updatedAtUtc:
+                    new Date().toISOString(),
+                }
+              : currentCategory
         )
       );
 
-      setSuccessMessage(
-        `Kategori "${category.name}" berhasil dinonaktifkan.`
-      );
+      setToast({
+        type: "success",
+        message:
+          `Kategori "${category.name}" berhasil dinonaktifkan.`,
+      });
     } catch (error) {
       console.error(error);
 
-      setErrorMessage(
-        getApiErrorMessage(
+      setToast({
+        type: "error",
+        message: getApiErrorMessage(
           error,
           "Gagal menonaktifkan kategori."
-        )
-      );
+        ),
+      });
     } finally {
       setDeactivatingCategoryId(null);
+      setCategoryToDeactivate(null);
     }
   }
 
@@ -244,7 +291,9 @@ function CategoriesPage() {
     <section className="page-section">
       <div className="page-heading">
         <div>
-          <p className="page-eyebrow">Master data</p>
+          <p className="page-eyebrow">
+            Master data
+          </p>
 
           <h1>Categories</h1>
 
@@ -262,12 +311,6 @@ function CategoriesPage() {
           Tambah kategori
         </button>
       </div>
-
-      {successMessage && (
-        <div className="message-card message-success">
-          {successMessage}
-        </div>
-      )}
 
       {isLoading && (
         <div className="message-card">
@@ -306,68 +349,60 @@ function CategoriesPage() {
               </thead>
 
               <tbody>
-                {categories.map((category) => {
-                  const isDeactivating =
-                    deactivatingCategoryId === category.id;
+                {categories.map((category) => (
+                  <tr key={category.id}>
+                    <td className="primary-cell">
+                      {category.name}
+                    </td>
 
-                  return (
-                    <tr key={category.id}>
-                      <td className="primary-cell">
-                        {category.name}
-                      </td>
+                    <td>
+                      {category.description ?? "-"}
+                    </td>
 
-                      <td>
-                        {category.description ?? "-"}
-                      </td>
+                    <td>
+                      <span
+                        className={
+                          category.isActive
+                            ? "status-badge status-active"
+                            : "status-badge status-inactive"
+                        }
+                      >
+                        {category.isActive
+                          ? "Aktif"
+                          : "Tidak aktif"}
+                      </span>
+                    </td>
 
-                      <td>
-                        <span
-                          className={
-                            category.isActive
-                              ? "status-badge status-active"
-                              : "status-badge status-inactive"
+                    <td>
+                      <div className="table-actions">
+                        <button
+                          className="action-button action-edit"
+                          type="button"
+                          onClick={() =>
+                            openEditModal(category)
+                          }
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          className="action-button action-danger"
+                          type="button"
+                          disabled={!category.isActive}
+                          onClick={() =>
+                            setCategoryToDeactivate(
+                              category
+                            )
                           }
                         >
                           {category.isActive
-                            ? "Aktif"
-                            : "Tidak aktif"}
-                        </span>
-                      </td>
-
-                      <td>
-                        <div className="table-actions">
-                          <button
-                            className="action-button action-edit"
-                            type="button"
-                            onClick={() =>
-                              openEditModal(category)
-                            }
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            className="action-button action-danger"
-                            type="button"
-                            disabled={
-                              !category.isActive ||
-                              isDeactivating
-                            }
-                            onClick={() =>
-                              void handleDeactivate(category)
-                            }
-                          >
-                            {isDeactivating
-                              ? "Memproses..."
-                              : category.isActive
-                                ? "Nonaktifkan"
-                                : "Nonaktif"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                            ? "Nonaktifkan"
+                            : "Nonaktif"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -454,6 +489,32 @@ function CategoriesPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={categoryToDeactivate !== null}
+        title="Nonaktifkan kategori?"
+        description={
+          categoryToDeactivate
+            ? `Kategori "${categoryToDeactivate.name}" tidak akan dapat digunakan sebagai kategori aktif. Data kategori tetap tersimpan.`
+            : ""
+        }
+        confirmLabel="Nonaktifkan"
+        isProcessing={
+          deactivatingCategoryId !== null
+        }
+        onCancel={closeConfirmDialog}
+        onConfirm={() =>
+          void handleConfirmDeactivate()
+        }
+      />
+
+      {toast && (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          onClose={closeToast}
+        />
+      )}
     </section>
   );
 }
