@@ -1,5 +1,8 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/WareFlow.Api/WareFlow.Api.csproj" />
+    <Project Path="src/WareFlow.Application/WareFlow.Application.csproj" />
+    <Project Path="src/WareFlow.Domain/WareFlow.Domain.csproj" />
+    <Project Path="src/WareFlow.Infrastructure/WareFlow.Infrastructure.csproj" />
   </Folder>
 </Solution>
