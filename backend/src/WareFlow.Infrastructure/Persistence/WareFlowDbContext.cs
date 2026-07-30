@@ -9,11 +9,15 @@ public sealed class WareFlowDbContext(
 {
     public DbSet<Category> Categories => Set<Category>();
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    public DbSet<Warehouse> Warehouses => Set<Warehouse>();
+
+    protected override void OnModelCreating(
+        ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfigurationsFromAssembly(
-            typeof(WareFlowDbContext).Assembly);
+            typeof(WareFlowDbContext).Assembly
+        );
     }
 }
