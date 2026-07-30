@@ -1,3 +1,4 @@
+using WareFlow.Api.ExceptionHandling;
 using WareFlow.Application.Categories;
 using WareFlow.Infrastructure;
 
@@ -5,6 +6,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddProblemDetails();
+
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 var connectionString =
     builder.Configuration.GetConnectionString(
@@ -27,6 +31,8 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+app.UseExceptionHandler();
 
 app.UseAuthorization();
 

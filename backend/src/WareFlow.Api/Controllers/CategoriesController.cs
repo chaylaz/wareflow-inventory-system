@@ -25,33 +25,21 @@ public sealed class CategoriesController(
         CreateCategoryRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var command = new CreateCategoryCommand(
-                Name: request.Name,
-                Description: request.Description
-            );
+        var command = new CreateCategoryCommand(
+            Name: request.Name,
+            Description: request.Description
+        );
 
-            var category =
-                await categoryService.CreateAsync(
-                    command,
-                    cancellationToken
-                );
+        var category = await categoryService.CreateAsync(
+            command,
+            cancellationToken
+        );
 
-            return CreatedAtAction(
-                nameof(GetById),
-                new { id = category.Id },
-                category
-            );
-        }
-        catch (CategoryAlreadyExistsException exception)
-        {
-            return Conflict(CreateProblemDetails(
-                StatusCodes.Status409Conflict,
-                "Category already exists.",
-                exception.Message
-            ));
-        }
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = category.Id },
+            category
+        );
     }
 
     [HttpGet]
@@ -91,11 +79,7 @@ public sealed class CategoriesController(
 
         if (category is null)
         {
-            return NotFound(CreateProblemDetails(
-                StatusCodes.Status404NotFound,
-                "Category not found.",
-                $"Category with ID '{id}' was not found."
-            ));
+            throw new CategoryNotFoundException(id);
         }
 
         return Ok(category);
@@ -120,38 +104,18 @@ public sealed class CategoriesController(
         UpdateCategoryRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var command = new UpdateCategoryCommand(
-                Id: id,
-                Name: request.Name,
-                Description: request.Description
-            );
+        var command = new UpdateCategoryCommand(
+            Id: id,
+            Name: request.Name,
+            Description: request.Description
+        );
 
-            var category =
-                await categoryService.UpdateAsync(
-                    command,
-                    cancellationToken
-                );
+        var category = await categoryService.UpdateAsync(
+            command,
+            cancellationToken
+        );
 
-            return Ok(category);
-        }
-        catch (CategoryNotFoundException exception)
-        {
-            return NotFound(CreateProblemDetails(
-                StatusCodes.Status404NotFound,
-                "Category not found.",
-                exception.Message
-            ));
-        }
-        catch (CategoryAlreadyExistsException exception)
-        {
-            return Conflict(CreateProblemDetails(
-                StatusCodes.Status409Conflict,
-                "Category already exists.",
-                exception.Message
-            ));
-        }
+        return Ok(category);
     }
 
     [HttpDelete("{id:guid}")]
@@ -165,35 +129,11 @@ public sealed class CategoriesController(
         Guid id,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            await categoryService.DeactivateAsync(
-                id,
-                cancellationToken
-            );
+        await categoryService.DeactivateAsync(
+            id,
+            cancellationToken
+        );
 
-            return NoContent();
-        }
-        catch (CategoryNotFoundException exception)
-        {
-            return NotFound(CreateProblemDetails(
-                StatusCodes.Status404NotFound,
-                "Category not found.",
-                exception.Message
-            ));
-        }
-    }
-
-    private static ProblemDetails CreateProblemDetails(
-        int status,
-        string title,
-        string detail)
-    {
-        return new ProblemDetails
-        {
-            Status = status,
-            Title = title,
-            Detail = detail
-        };
+        return NoContent();
     }
 }
