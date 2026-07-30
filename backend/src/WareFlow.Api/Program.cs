@@ -5,11 +5,24 @@ using WareFlow.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
+const string frontendCorsPolicy = "Frontend";
+
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(frontendCorsPolicy, policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 
 var connectionString =
     builder.Configuration.GetConnectionString(
@@ -39,6 +52,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseExceptionHandler();
+
+app.UseCors(frontendCorsPolicy);
 
 app.UseAuthorization();
 
