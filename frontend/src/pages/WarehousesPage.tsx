@@ -10,6 +10,10 @@ import { api } from "../lib/api";
 import { getApiErrorMessage } from "../lib/getApiErrorMessage";
 import type { Warehouse } from "../types/inventory";
 
+import "../styles/tableActions.css";
+
+type WarehouseModalMode = "create" | "edit" | null;
+
 function WarehousesPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>(
     []
@@ -19,15 +23,22 @@ function WarehousesPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const [isCreateModalOpen, setIsCreateModalOpen] =
-    useState(false);
+  const [modalMode, setModalMode] =
+    useState<WarehouseModalMode>(null);
+
+  const [editingWarehouseId, setEditingWarehouseId] =
+    useState<string | null>(null);
 
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
 
-  const [isSubmitting, setIsSubmitting] =
-    useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [
+    deactivatingWarehouseId,
+    setDeactivatingWarehouseId,
+  ] = useState<string | null>(null);
 
   const [formError, setFormError] = useState("");
 
@@ -58,25 +69,52 @@ function WarehousesPage() {
     void loadWarehouses();
   }, [loadWarehouses]);
 
+  function sortWarehouses(warehouseList: Warehouse[]) {
+    return [...warehouseList].sort(
+      (firstWarehouse, secondWarehouse) =>
+        firstWarehouse.code.localeCompare(
+          secondWarehouse.code
+        )
+    );
+  }
+
   function openCreateModal() {
+    setModalMode("create");
+    setEditingWarehouseId(null);
+
     setCode("");
     setName("");
     setAddress("");
+
     setFormError("");
     setSuccessMessage("");
-    setIsCreateModalOpen(true);
+    setErrorMessage("");
   }
 
-  function closeCreateModal() {
+  function openEditModal(warehouse: Warehouse) {
+    setModalMode("edit");
+    setEditingWarehouseId(warehouse.id);
+
+    setCode(warehouse.code);
+    setName(warehouse.name);
+    setAddress(warehouse.address ?? "");
+
+    setFormError("");
+    setSuccessMessage("");
+    setErrorMessage("");
+  }
+
+  function closeModal() {
     if (isSubmitting) {
       return;
     }
 
-    setIsCreateModalOpen(false);
+    setModalMode(null);
+    setEditingWarehouseId(null);
     setFormError("");
   }
 
-  async function handleCreateWarehouse(
+  async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
@@ -106,45 +144,138 @@ function WarehousesPage() {
       setIsSubmitting(true);
       setFormError("");
 
-      const response = await api.post<Warehouse>(
-        "/api/warehouses",
-        {
-          code: normalizedCode,
-          name: normalizedName,
-          address: normalizedAddress || null,
-        }
-      );
+      const requestBody = {
+        code: normalizedCode,
+        name: normalizedName,
+        address: normalizedAddress || null,
+      };
 
-      setWarehouses((currentWarehouses) =>
-        [...currentWarehouses, response.data].sort(
-          (firstWarehouse, secondWarehouse) =>
-            firstWarehouse.code.localeCompare(
-              secondWarehouse.code
+      if (modalMode === "create") {
+        const response = await api.post<Warehouse>(
+          "/api/warehouses",
+          requestBody
+        );
+
+        setWarehouses((currentWarehouses) =>
+          sortWarehouses([
+            ...currentWarehouses,
+            response.data,
+          ])
+        );
+
+        setSuccessMessage(
+          `Gudang "${response.data.name}" berhasil ditambahkan.`
+        );
+      }
+
+      if (
+        modalMode === "edit" &&
+        editingWarehouseId !== null
+      ) {
+        const response = await api.put<Warehouse>(
+          `/api/warehouses/${editingWarehouseId}`,
+          requestBody
+        );
+
+        setWarehouses((currentWarehouses) =>
+          sortWarehouses(
+            currentWarehouses.map((warehouse) =>
+              warehouse.id === response.data.id
+                ? response.data
+                : warehouse
             )
-        )
-      );
+          )
+        );
 
-      setSuccessMessage(
-        `Gudang "${response.data.name}" berhasil ditambahkan.`
-      );
+        setSuccessMessage(
+          `Gudang "${response.data.name}" berhasil diperbarui.`
+        );
+      }
+
+      setModalMode(null);
+      setEditingWarehouseId(null);
 
       setCode("");
       setName("");
       setAddress("");
-      setIsCreateModalOpen(false);
     } catch (error) {
       console.error(error);
 
       setFormError(
         getApiErrorMessage(
           error,
-          "Gagal menambahkan gudang."
+          modalMode === "edit"
+            ? "Gagal memperbarui gudang."
+            : "Gagal menambahkan gudang."
         )
       );
     } finally {
       setIsSubmitting(false);
     }
   }
+
+  async function handleDeactivate(
+    warehouse: Warehouse
+  ) {
+    if (!warehouse.isActive) {
+      return;
+    }
+
+    const isConfirmed = window.confirm(
+      `Nonaktifkan gudang "${warehouse.name}"?`
+    );
+
+    if (!isConfirmed) {
+      return;
+    }
+
+    try {
+      setDeactivatingWarehouseId(warehouse.id);
+      setSuccessMessage("");
+      setErrorMessage("");
+
+      await api.delete(
+        `/api/warehouses/${warehouse.id}`
+      );
+
+      setWarehouses((currentWarehouses) =>
+        currentWarehouses.map((currentWarehouse) =>
+          currentWarehouse.id === warehouse.id
+            ? {
+                ...currentWarehouse,
+                isActive: false,
+                updatedAtUtc: new Date().toISOString(),
+              }
+            : currentWarehouse
+        )
+      );
+
+      setSuccessMessage(
+        `Gudang "${warehouse.name}" berhasil dinonaktifkan.`
+      );
+    } catch (error) {
+      console.error(error);
+
+      setErrorMessage(
+        getApiErrorMessage(
+          error,
+          "Gagal menonaktifkan gudang."
+        )
+      );
+    } finally {
+      setDeactivatingWarehouseId(null);
+    }
+  }
+
+  const modalTitle =
+    modalMode === "edit"
+      ? "Edit gudang"
+      : "Tambah gudang";
+
+  const submitButtonText =
+    modalMode === "edit"
+      ? "Simpan perubahan"
+      : "Simpan gudang";
 
   return (
     <section className="page-section">
@@ -205,52 +336,97 @@ function WarehousesPage() {
                   <th>Nama gudang</th>
                   <th>Alamat</th>
                   <th>Status</th>
+                  <th className="action-column-heading">
+                    Aksi
+                  </th>
                 </tr>
               </thead>
 
               <tbody>
-                {warehouses.map((warehouse) => (
-                  <tr key={warehouse.id}>
-                    <td>
-                      <span className="code-badge">
-                        {warehouse.code}
-                      </span>
-                    </td>
+                {warehouses.map((warehouse) => {
+                  const isDeactivating =
+                    deactivatingWarehouseId ===
+                    warehouse.id;
 
-                    <td className="primary-cell">
-                      {warehouse.name}
-                    </td>
+                  return (
+                    <tr key={warehouse.id}>
+                      <td>
+                        <span className="code-badge">
+                          {warehouse.code}
+                        </span>
+                      </td>
 
-                    <td>{warehouse.address ?? "-"}</td>
+                      <td className="primary-cell">
+                        {warehouse.name}
+                      </td>
 
-                    <td>
-                      <span
-                        className={
-                          warehouse.isActive
-                            ? "status-badge status-active"
-                            : "status-badge status-inactive"
-                        }
-                      >
-                        {warehouse.isActive
-                          ? "Aktif"
-                          : "Tidak aktif"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                      <td>
+                        {warehouse.address ?? "-"}
+                      </td>
+
+                      <td>
+                        <span
+                          className={
+                            warehouse.isActive
+                              ? "status-badge status-active"
+                              : "status-badge status-inactive"
+                          }
+                        >
+                          {warehouse.isActive
+                            ? "Aktif"
+                            : "Tidak aktif"}
+                        </span>
+                      </td>
+
+                      <td>
+                        <div className="table-actions">
+                          <button
+                            className="action-button action-edit"
+                            type="button"
+                            onClick={() =>
+                              openEditModal(warehouse)
+                            }
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            className="action-button action-danger"
+                            type="button"
+                            disabled={
+                              !warehouse.isActive ||
+                              isDeactivating
+                            }
+                            onClick={() =>
+                              void handleDeactivate(
+                                warehouse
+                              )
+                            }
+                          >
+                            {isDeactivating
+                              ? "Memproses..."
+                              : warehouse.isActive
+                                ? "Nonaktifkan"
+                                : "Nonaktif"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
 
       <Modal
-        isOpen={isCreateModalOpen}
-        title="Tambah gudang"
-        onClose={closeCreateModal}
+        isOpen={modalMode !== null}
+        title={modalTitle}
+        onClose={closeModal}
       >
         <form
           className="data-form"
-          onSubmit={handleCreateWarehouse}
+          onSubmit={handleSubmit}
         >
           <div className="form-field">
             <label htmlFor="warehouse-code">
@@ -266,7 +442,9 @@ function WarehousesPage() {
               autoFocus
               required
               onChange={(event) =>
-                setCode(event.target.value.toUpperCase())
+                setCode(
+                  event.target.value.toUpperCase()
+                )
               }
             />
 
@@ -329,7 +507,7 @@ function WarehousesPage() {
               className="secondary-button"
               type="button"
               disabled={isSubmitting}
-              onClick={closeCreateModal}
+              onClick={closeModal}
             >
               Batal
             </button>
@@ -341,7 +519,7 @@ function WarehousesPage() {
             >
               {isSubmitting
                 ? "Menyimpan..."
-                : "Simpan gudang"}
+                : submitButtonText}
             </button>
           </div>
         </form>
