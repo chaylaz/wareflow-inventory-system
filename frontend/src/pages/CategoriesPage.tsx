@@ -10,23 +10,29 @@ import { api } from "../lib/api";
 import { getApiErrorMessage } from "../lib/getApiErrorMessage";
 import type { Category } from "../types/inventory";
 
+import "../styles/tableActions.css";
+
+type CategoryModalMode = "create" | "edit" | null;
+
 function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>(
-    []
-  );
+  const [categories, setCategories] = useState<Category[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const [isCreateModalOpen, setIsCreateModalOpen] =
-    useState(false);
+  const [modalMode, setModalMode] =
+    useState<CategoryModalMode>(null);
+
+  const [editingCategoryId, setEditingCategoryId] =
+    useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
-  const [isSubmitting, setIsSubmitting] =
-    useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deactivatingCategoryId, setDeactivatingCategoryId] =
+    useState<string | null>(null);
 
   const [formError, setFormError] = useState("");
 
@@ -57,24 +63,42 @@ function CategoriesPage() {
     void loadCategories();
   }, [loadCategories]);
 
+  function sortCategories(categoryList: Category[]) {
+    return [...categoryList].sort(
+      (firstCategory, secondCategory) =>
+        firstCategory.name.localeCompare(secondCategory.name)
+    );
+  }
+
   function openCreateModal() {
+    setModalMode("create");
+    setEditingCategoryId(null);
     setName("");
     setDescription("");
     setFormError("");
     setSuccessMessage("");
-    setIsCreateModalOpen(true);
   }
 
-  function closeCreateModal() {
+  function openEditModal(category: Category) {
+    setModalMode("edit");
+    setEditingCategoryId(category.id);
+    setName(category.name);
+    setDescription(category.description ?? "");
+    setFormError("");
+    setSuccessMessage("");
+  }
+
+  function closeModal() {
     if (isSubmitting) {
       return;
     }
 
-    setIsCreateModalOpen(false);
+    setModalMode(null);
+    setEditingCategoryId(null);
     setFormError("");
   }
 
-  async function handleCreateCategory(
+  async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
@@ -91,37 +115,66 @@ function CategoriesPage() {
       setIsSubmitting(true);
       setFormError("");
 
-      const response = await api.post<Category>(
-        "/api/categories",
-        {
-          name: normalizedName,
-          description: normalizedDescription || null,
-        }
-      );
+      const requestBody = {
+        name: normalizedName,
+        description: normalizedDescription || null,
+      };
 
-      setCategories((currentCategories) =>
-        [...currentCategories, response.data].sort(
-          (firstCategory, secondCategory) =>
-            firstCategory.name.localeCompare(
-              secondCategory.name
+      if (modalMode === "create") {
+        const response = await api.post<Category>(
+          "/api/categories",
+          requestBody
+        );
+
+        setCategories((currentCategories) =>
+          sortCategories([
+            ...currentCategories,
+            response.data,
+          ])
+        );
+
+        setSuccessMessage(
+          `Kategori "${response.data.name}" berhasil ditambahkan.`
+        );
+      }
+
+      if (
+        modalMode === "edit" &&
+        editingCategoryId !== null
+      ) {
+        const response = await api.put<Category>(
+          `/api/categories/${editingCategoryId}`,
+          requestBody
+        );
+
+        setCategories((currentCategories) =>
+          sortCategories(
+            currentCategories.map((category) =>
+              category.id === response.data.id
+                ? response.data
+                : category
             )
-        )
-      );
+          )
+        );
 
-      setSuccessMessage(
-        `Kategori "${response.data.name}" berhasil ditambahkan.`
-      );
+        setSuccessMessage(
+          `Kategori "${response.data.name}" berhasil diperbarui.`
+        );
+      }
 
+      setModalMode(null);
+      setEditingCategoryId(null);
       setName("");
       setDescription("");
-      setIsCreateModalOpen(false);
     } catch (error) {
       console.error(error);
 
       setFormError(
         getApiErrorMessage(
           error,
-          "Gagal menambahkan kategori."
+          modalMode === "edit"
+            ? "Gagal memperbarui kategori."
+            : "Gagal menambahkan kategori."
         )
       );
     } finally {
@@ -129,12 +182,72 @@ function CategoriesPage() {
     }
   }
 
+  async function handleDeactivate(category: Category) {
+    if (!category.isActive) {
+      return;
+    }
+
+    const isConfirmed = window.confirm(
+      `Nonaktifkan kategori "${category.name}"?`
+    );
+
+    if (!isConfirmed) {
+      return;
+    }
+
+    try {
+      setDeactivatingCategoryId(category.id);
+      setSuccessMessage("");
+
+      await api.delete(`/api/categories/${category.id}`);
+
+      setCategories((currentCategories) =>
+        currentCategories.map((currentCategory) =>
+          currentCategory.id === category.id
+            ? {
+                ...currentCategory,
+                isActive: false,
+                updatedAtUtc: new Date().toISOString(),
+              }
+            : currentCategory
+        )
+      );
+
+      setSuccessMessage(
+        `Kategori "${category.name}" berhasil dinonaktifkan.`
+      );
+    } catch (error) {
+      console.error(error);
+
+      setErrorMessage(
+        getApiErrorMessage(
+          error,
+          "Gagal menonaktifkan kategori."
+        )
+      );
+    } finally {
+      setDeactivatingCategoryId(null);
+    }
+  }
+
+  const modalTitle =
+    modalMode === "edit"
+      ? "Edit kategori"
+      : "Tambah kategori";
+
+  const submitButtonText =
+    modalMode === "edit"
+      ? "Simpan perubahan"
+      : "Simpan kategori";
+
   return (
     <section className="page-section">
       <div className="page-heading">
         <div>
           <p className="page-eyebrow">Master data</p>
+
           <h1>Categories</h1>
+
           <p>
             Kelola kategori yang digunakan untuk
             mengelompokkan barang.
@@ -186,48 +299,88 @@ function CategoriesPage() {
                   <th>Nama kategori</th>
                   <th>Deskripsi</th>
                   <th>Status</th>
+                  <th className="action-column-heading">
+                    Aksi
+                  </th>
                 </tr>
               </thead>
 
               <tbody>
-                {categories.map((category) => (
-                  <tr key={category.id}>
-                    <td className="primary-cell">
-                      {category.name}
-                    </td>
+                {categories.map((category) => {
+                  const isDeactivating =
+                    deactivatingCategoryId === category.id;
 
-                    <td>
-                      {category.description ?? "-"}
-                    </td>
+                  return (
+                    <tr key={category.id}>
+                      <td className="primary-cell">
+                        {category.name}
+                      </td>
 
-                    <td>
-                      <span
-                        className={
-                          category.isActive
-                            ? "status-badge status-active"
-                            : "status-badge status-inactive"
-                        }
-                      >
-                        {category.isActive
-                          ? "Aktif"
-                          : "Tidak aktif"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                      <td>
+                        {category.description ?? "-"}
+                      </td>
+
+                      <td>
+                        <span
+                          className={
+                            category.isActive
+                              ? "status-badge status-active"
+                              : "status-badge status-inactive"
+                          }
+                        >
+                          {category.isActive
+                            ? "Aktif"
+                            : "Tidak aktif"}
+                        </span>
+                      </td>
+
+                      <td>
+                        <div className="table-actions">
+                          <button
+                            className="action-button action-edit"
+                            type="button"
+                            onClick={() =>
+                              openEditModal(category)
+                            }
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            className="action-button action-danger"
+                            type="button"
+                            disabled={
+                              !category.isActive ||
+                              isDeactivating
+                            }
+                            onClick={() =>
+                              void handleDeactivate(category)
+                            }
+                          >
+                            {isDeactivating
+                              ? "Memproses..."
+                              : category.isActive
+                                ? "Nonaktifkan"
+                                : "Nonaktif"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
 
       <Modal
-        isOpen={isCreateModalOpen}
-        title="Tambah kategori"
-        onClose={closeCreateModal}
+        isOpen={modalMode !== null}
+        title={modalTitle}
+        onClose={closeModal}
       >
         <form
           className="data-form"
-          onSubmit={handleCreateCategory}
+          onSubmit={handleSubmit}
         >
           <div className="form-field">
             <label htmlFor="category-name">
@@ -246,6 +399,10 @@ function CategoriesPage() {
                 setName(event.target.value)
               }
             />
+
+            <span className="character-counter">
+              {name.length}/100
+            </span>
           </div>
 
           <div className="form-field">
@@ -280,7 +437,7 @@ function CategoriesPage() {
               className="secondary-button"
               type="button"
               disabled={isSubmitting}
-              onClick={closeCreateModal}
+              onClick={closeModal}
             >
               Batal
             </button>
@@ -292,7 +449,7 @@ function CategoriesPage() {
             >
               {isSubmitting
                 ? "Menyimpan..."
-                : "Simpan kategori"}
+                : submitButtonText}
             </button>
           </div>
         </form>
