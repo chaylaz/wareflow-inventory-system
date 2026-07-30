@@ -10,6 +10,7 @@ import DashboardPage from "./pages/DashboardPage";
 import WarehousesPage from "./pages/WarehousesPage";
 
 import "./App.css";
+import "./styles/uiRefinement.css";
 
 function App() {
   return (
@@ -18,7 +19,10 @@ function App() {
         <Route
           index
           element={
-            <Navigate to="/dashboard" replace />
+            <Navigate
+              to="/dashboard"
+              replace
+            />
           }
         />
 
@@ -40,7 +44,10 @@ function App() {
         <Route
           path="*"
           element={
-            <Navigate to="/dashboard" replace />
+            <Navigate
+              to="/dashboard"
+              replace
+            />
           }
         />
       </Route>

@@ -1,20 +1,28 @@
+import {
+  Activity,
+  Boxes,
+  LayoutDashboard,
+  Tags,
+  Warehouse,
+} from "lucide-react";
+
 import { NavLink, Outlet } from "react-router-dom";
 
 const navigationItems = [
   {
     path: "/dashboard",
     label: "Dashboard",
-    symbol: "D",
+    icon: LayoutDashboard,
   },
   {
     path: "/categories",
     label: "Categories",
-    symbol: "C",
+    icon: Tags,
   },
   {
     path: "/warehouses",
     label: "Warehouses",
-    symbol: "W",
+    icon: Warehouse,
   },
 ];
 
@@ -23,10 +31,15 @@ function AppLayout() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">W</div>
+          <div className="brand-mark">
+            <Boxes size={23} strokeWidth={2.2} />
+          </div>
 
           <div>
-            <strong className="brand-name">WareFlow</strong>
+            <strong className="brand-name">
+              WareFlow
+            </strong>
+
             <span className="brand-description">
               Inventory System
             </span>
@@ -34,30 +47,40 @@ function AppLayout() {
         </div>
 
         <nav className="sidebar-navigation">
-          <p className="navigation-label">Menu utama</p>
+          <p className="navigation-label">
+            Menu utama
+          </p>
 
-          {navigationItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) =>
-                isActive
-                  ? "navigation-link navigation-link-active"
-                  : "navigation-link"
-              }
-            >
-              <span className="navigation-symbol">
-                {item.symbol}
-              </span>
+          {navigationItems.map((item) => {
+            const Icon = item.icon;
 
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  isActive
+                    ? "navigation-link navigation-link-active"
+                    : "navigation-link"
+                }
+              >
+                <span className="navigation-symbol">
+                  <Icon size={17} strokeWidth={2} />
+                </span>
+
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
         </nav>
 
         <div className="sidebar-footer">
           <span className="environment-indicator" />
-          Development
+
+          <div>
+            <strong>Development</strong>
+            <span>Local environment</span>
+          </div>
         </div>
       </aside>
 
@@ -73,7 +96,20 @@ function AppLayout() {
             </p>
           </div>
 
-          <div className="user-avatar">A</div>
+          <div className="topbar-actions">
+            <div className="api-status">
+              <Activity size={15} />
+
+              <span>API terhubung</span>
+            </div>
+
+            <div
+              className="user-avatar"
+              title="Administrator"
+            >
+              A
+            </div>
+          </div>
         </header>
 
         <main className="page-content">

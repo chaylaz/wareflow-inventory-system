@@ -1,8 +1,17 @@
+import {
+  CheckCircle2,
+  PackageCheck,
+  Tags,
+  Warehouse,
+} from "lucide-react";
+
 import { useEffect, useState } from "react";
+
 import { api } from "../lib/api";
+
 import type {
   Category,
-  Warehouse,
+  Warehouse as WarehouseType,
 } from "../types/inventory";
 
 type DashboardSummary = {
@@ -24,7 +33,8 @@ function DashboardPage() {
     useState<DashboardSummary>(initialSummary);
 
   const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [errorMessage, setErrorMessage] =
+    useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -36,22 +46,31 @@ function DashboardPage() {
           warehousesResponse,
         ] = await Promise.all([
           api.get<Category[]>("/api/categories"),
-          api.get<Warehouse[]>("/api/warehouses"),
+
+          api.get<WarehouseType[]>(
+            "/api/warehouses"
+          ),
         ]);
 
         if (!isMounted) {
           return;
         }
 
-        const categories = categoriesResponse.data;
-        const warehouses = warehousesResponse.data;
+        const categories =
+          categoriesResponse.data;
+
+        const warehouses =
+          warehousesResponse.data;
 
         setSummary({
           totalCategories: categories.length,
+
           activeCategories: categories.filter(
             (category) => category.isActive
           ).length,
+
           totalWarehouses: warehouses.length,
+
           activeWarehouses: warehouses.filter(
             (warehouse) => warehouse.isActive
           ).length,
@@ -71,7 +90,7 @@ function DashboardPage() {
       }
     }
 
-    loadDashboard();
+    void loadDashboard();
 
     return () => {
       isMounted = false;
@@ -83,32 +102,70 @@ function DashboardPage() {
       label: "Total kategori",
       value: summary.totalCategories,
       description: "Seluruh kategori barang",
+      icon: Tags,
+      tone: "blue",
     },
     {
       label: "Kategori aktif",
       value: summary.activeCategories,
       description: "Kategori yang dapat digunakan",
+      icon: CheckCircle2,
+      tone: "green",
     },
     {
       label: "Total gudang",
       value: summary.totalWarehouses,
       description: "Seluruh lokasi gudang",
+      icon: Warehouse,
+      tone: "purple",
     },
     {
       label: "Gudang aktif",
       value: summary.activeWarehouses,
       description: "Gudang yang sedang digunakan",
+      icon: PackageCheck,
+      tone: "orange",
     },
   ];
 
+  const totalActiveData =
+    summary.activeCategories +
+    summary.activeWarehouses;
+
   return (
     <section className="page-section">
-      <div className="page-heading">
+      <div className="dashboard-hero">
         <div>
-          <p className="page-eyebrow">Overview</p>
-          <h1>Dashboard</h1>
+          <p className="page-eyebrow">
+            Inventory overview
+          </p>
+
+          <h1>Selamat datang di WareFlow</h1>
+
           <p>
-            Ringkasan data utama WareFlow Inventory.
+            Pantau kategori dan lokasi gudang dalam
+            satu sistem yang terintegrasi.
+          </p>
+        </div>
+
+        <div className="dashboard-hero-stat">
+          <span>Data aktif</span>
+
+          <strong>{totalActiveData}</strong>
+
+          <small>
+            Kategori dan gudang aktif
+          </small>
+        </div>
+      </div>
+
+      <div className="dashboard-section-heading">
+        <div>
+          <h2>Ringkasan sistem</h2>
+
+          <p>
+            Informasi terbaru berdasarkan data
+            yang tersimpan.
           </p>
         </div>
       </div>
@@ -127,24 +184,41 @@ function DashboardPage() {
 
       {!isLoading && !errorMessage && (
         <div className="summary-grid">
-          {summaryCards.map((card) => (
-            <article
-              key={card.label}
-              className="summary-card"
-            >
-              <p className="summary-label">
-                {card.label}
-              </p>
+          {summaryCards.map((card) => {
+            const Icon = card.icon;
 
-              <strong className="summary-value">
-                {card.value}
-              </strong>
+            return (
+              <article
+                key={card.label}
+                className={`summary-card summary-card-${card.tone}`}
+              >
+                <div className="summary-card-header">
+                  <div className="summary-icon">
+                    <Icon
+                      size={21}
+                      strokeWidth={2}
+                    />
+                  </div>
 
-              <p className="summary-description">
-                {card.description}
-              </p>
-            </article>
-          ))}
+                  <span className="summary-status">
+                    Live
+                  </span>
+                </div>
+
+                <p className="summary-label">
+                  {card.label}
+                </p>
+
+                <strong className="summary-value">
+                  {card.value}
+                </strong>
+
+                <p className="summary-description">
+                  {card.description}
+                </p>
+              </article>
+            );
+          })}
         </div>
       )}
     </section>
