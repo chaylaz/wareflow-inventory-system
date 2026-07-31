@@ -1,6 +1,14 @@
 import {
+  Search,
+  SearchX,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
+
+import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type FormEvent,
 } from "react";
@@ -12,9 +20,12 @@ import { api } from "../lib/api";
 import { getApiErrorMessage } from "../lib/getApiErrorMessage";
 import type { Category } from "../types/inventory";
 
+import "../styles/dataToolbar.css";
 import "../styles/tableActions.css";
 
 type CategoryModalMode = "create" | "edit" | null;
+
+type StatusFilter = "all" | "active" | "inactive";
 
 type ToastState = {
   type: "success" | "error";
@@ -27,6 +38,10 @@ function CategoriesPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] =
+    useState<StatusFilter>("all");
 
   const [toast, setToast] =
     useState<ToastState>(null);
@@ -88,6 +103,39 @@ function CategoriesPage() {
     void loadCategories();
   }, [loadCategories]);
 
+  const filteredCategories = useMemo(() => {
+    const normalizedSearch =
+      searchQuery.trim().toLowerCase();
+
+    return categories.filter((category) => {
+      const matchesSearch =
+        normalizedSearch.length === 0 ||
+        category.name
+          .toLowerCase()
+          .includes(normalizedSearch) ||
+        (category.description ?? "")
+          .toLowerCase()
+          .includes(normalizedSearch);
+
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" &&
+          category.isActive) ||
+        (statusFilter === "inactive" &&
+          !category.isActive);
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [categories, searchQuery, statusFilter]);
+
+  const activeCategoryCount = useMemo(
+    () =>
+      categories.filter(
+        (category) => category.isActive
+      ).length,
+    [categories]
+  );
+
   function sortCategories(
     categoryList: Category[]
   ) {
@@ -97,6 +145,11 @@ function CategoriesPage() {
           secondCategory.name
         )
     );
+  }
+
+  function resetFilters() {
+    setSearchQuery("");
+    setStatusFilter("all");
   }
 
   function openCreateModal() {
@@ -287,6 +340,10 @@ function CategoriesPage() {
       ? "Simpan perubahan"
       : "Simpan kategori";
 
+  const hasActiveFilter =
+    searchQuery.trim().length > 0 ||
+    statusFilter !== "all";
+
   return (
     <section className="page-section">
       <div className="page-heading">
@@ -335,76 +392,203 @@ function CategoriesPage() {
       {!isLoading &&
         !errorMessage &&
         categories.length > 0 && (
-          <div className="table-card">
-            <table>
-              <thead>
-                <tr>
-                  <th>Nama kategori</th>
-                  <th>Deskripsi</th>
-                  <th>Status</th>
-                  <th className="action-column-heading">
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
+          <div className="data-panel">
+            <div className="data-toolbar">
+              <div className="search-field">
+                <Search
+                  size={18}
+                  strokeWidth={2}
+                />
 
-              <tbody>
-                {categories.map((category) => (
-                  <tr key={category.id}>
-                    <td className="primary-cell">
-                      {category.name}
-                    </td>
+                <input
+                  type="search"
+                  value={searchQuery}
+                  placeholder="Cari nama atau deskripsi kategori..."
+                  aria-label="Cari kategori"
+                  onChange={(event) =>
+                    setSearchQuery(
+                      event.target.value
+                    )
+                  }
+                />
 
-                    <td>
-                      {category.description ?? "-"}
-                    </td>
+                {searchQuery && (
+                  <button
+                    className="clear-search-button"
+                    type="button"
+                    aria-label="Hapus pencarian"
+                    onClick={() =>
+                      setSearchQuery("")
+                    }
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
 
-                    <td>
-                      <span
-                        className={
-                          category.isActive
-                            ? "status-badge status-active"
-                            : "status-badge status-inactive"
-                        }
-                      >
-                        {category.isActive
-                          ? "Aktif"
-                          : "Tidak aktif"}
-                      </span>
-                    </td>
+              <div className="filter-control">
+                <SlidersHorizontal
+                  size={17}
+                  strokeWidth={2}
+                />
 
-                    <td>
-                      <div className="table-actions">
-                        <button
-                          className="action-button action-edit"
-                          type="button"
-                          onClick={() =>
-                            openEditModal(category)
-                          }
-                        >
-                          Edit
-                        </button>
+                <select
+                  value={statusFilter}
+                  aria-label="Filter status kategori"
+                  onChange={(event) =>
+                    setStatusFilter(
+                      event.target
+                        .value as StatusFilter
+                    )
+                  }
+                >
+                  <option value="all">
+                    Semua status
+                  </option>
 
-                        <button
-                          className="action-button action-danger"
-                          type="button"
-                          disabled={!category.isActive}
-                          onClick={() =>
-                            setCategoryToDeactivate(
-                              category
-                            )
-                          }
-                        >
-                          {category.isActive
-                            ? "Nonaktifkan"
-                            : "Nonaktif"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  <option value="active">
+                    Aktif
+                  </option>
+
+                  <option value="inactive">
+                    Tidak aktif
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <div className="data-summary">
+              <span>
+                Menampilkan{" "}
+                <strong>
+                  {filteredCategories.length}
+                </strong>{" "}
+                dari{" "}
+                <strong>{categories.length}</strong>{" "}
+                kategori
+              </span>
+
+              <span>
+                <strong>
+                  {activeCategoryCount}
+                </strong>{" "}
+                kategori aktif
+              </span>
+
+              {hasActiveFilter && (
+                <span className="filter-indicator">
+                  Filter diterapkan
+                </span>
+              )}
+            </div>
+
+            {filteredCategories.length > 0 ? (
+              <div className="table-card">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Nama kategori</th>
+                      <th>Deskripsi</th>
+                      <th>Status</th>
+
+                      <th className="action-column-heading">
+                        Aksi
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {filteredCategories.map(
+                      (category) => (
+                        <tr key={category.id}>
+                          <td className="primary-cell">
+                            {category.name}
+                          </td>
+
+                          <td>
+                            {category.description ??
+                              "-"}
+                          </td>
+
+                          <td>
+                            <span
+                              className={
+                                category.isActive
+                                  ? "status-badge status-active"
+                                  : "status-badge status-inactive"
+                              }
+                            >
+                              {category.isActive
+                                ? "Aktif"
+                                : "Tidak aktif"}
+                            </span>
+                          </td>
+
+                          <td>
+                            <div className="table-actions">
+                              <button
+                                className="action-button action-edit"
+                                type="button"
+                                onClick={() =>
+                                  openEditModal(
+                                    category
+                                  )
+                                }
+                              >
+                                Edit
+                              </button>
+
+                              <button
+                                className="action-button action-danger"
+                                type="button"
+                                disabled={
+                                  !category.isActive
+                                }
+                                onClick={() =>
+                                  setCategoryToDeactivate(
+                                    category
+                                  )
+                                }
+                              >
+                                {category.isActive
+                                  ? "Nonaktifkan"
+                                  : "Nonaktif"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="empty-filter-state">
+                <div className="empty-filter-content">
+                  <div className="empty-filter-icon">
+                    <SearchX size={25} />
+                  </div>
+
+                  <h3>
+                    Kategori tidak ditemukan
+                  </h3>
+
+                  <p>
+                    Tidak ada kategori yang sesuai
+                    dengan kata kunci atau filter
+                    yang dipilih.
+                  </p>
+
+                  <button
+                    className="reset-filter-button"
+                    type="button"
+                    onClick={resetFilters}
+                  >
+                    Reset pencarian
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
