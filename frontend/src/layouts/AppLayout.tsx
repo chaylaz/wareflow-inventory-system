@@ -2,6 +2,7 @@ import {
   Activity,
   Boxes,
   LayoutDashboard,
+  Package,
   Tags,
   Warehouse,
 } from "lucide-react";
@@ -23,6 +24,11 @@ const navigationItems = [
     path: "/warehouses",
     label: "Warehouses",
     icon: Warehouse,
+  },
+  {
+    path: "/products",
+    label: "Products",
+    icon: Package,
   },
 ];
 
@@ -99,7 +105,6 @@ function AppLayout() {
           <div className="topbar-actions">
             <div className="api-status">
               <Activity size={15} />
-
               <span>API terhubung</span>
             </div>
 

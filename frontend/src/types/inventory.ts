@@ -16,3 +16,17 @@ export type Warehouse = {
   createdAtUtc: string;
   updatedAtUtc: string | null;
 };
+
+export type Product = {
+  id: string;
+  sku: string;
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  unit: string;
+  description: string | null;
+  minimumStock: number;
+  isActive: boolean;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
+};
