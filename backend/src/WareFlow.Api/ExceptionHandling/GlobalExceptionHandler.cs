@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using WareFlow.Application.Categories;
+using WareFlow.Application.Products;
 using WareFlow.Application.Warehouses;
 
 namespace WareFlow.Api.ExceptionHandling;
@@ -37,6 +38,18 @@ public sealed class GlobalExceptionHandler(
             WarehouseAlreadyExistsException => (
                 StatusCodes.Status409Conflict,
                 "Warehouse already exists.",
+                exception.Message
+            ),
+
+            ProductNotFoundException => (
+                StatusCodes.Status404NotFound,
+                "Product not found.",
+                exception.Message
+            ),
+
+            ProductAlreadyExistsException => (
+                StatusCodes.Status409Conflict,
+                "Product already exists.",
                 exception.Message
             ),
 

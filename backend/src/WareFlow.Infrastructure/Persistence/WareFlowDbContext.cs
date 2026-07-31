@@ -7,9 +7,14 @@ public sealed class WareFlowDbContext(
     DbContextOptions<WareFlowDbContext> options)
     : DbContext(options)
 {
-    public DbSet<Category> Categories => Set<Category>();
+    public DbSet<Category> Categories =>
+        Set<Category>();
 
-    public DbSet<Warehouse> Warehouses => Set<Warehouse>();
+    public DbSet<Warehouse> Warehouses =>
+        Set<Warehouse>();
+
+    public DbSet<Product> Products =>
+        Set<Product>();
 
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)

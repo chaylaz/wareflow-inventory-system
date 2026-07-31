@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WareFlow.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using WareFlow.Infrastructure.Persistence;
 namespace WareFlow.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(WareFlowDbContext))]
-    partial class WareFlowDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260731050414_AddProducts")]
+    partial class AddProducts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
