@@ -1,6 +1,14 @@
 import {
+  Search,
+  SearchX,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
+
+import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type FormEvent,
 } from "react";
@@ -12,12 +20,15 @@ import { api } from "../lib/api";
 import { getApiErrorMessage } from "../lib/getApiErrorMessage";
 import type { Warehouse } from "../types/inventory";
 
+import "../styles/dataToolbar.css";
 import "../styles/tableActions.css";
 
 type WarehouseModalMode =
   | "create"
   | "edit"
   | null;
+
+type StatusFilter = "all" | "active" | "inactive";
 
 type ToastState = {
   type: "success" | "error";
@@ -31,6 +42,10 @@ function WarehousesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] =
     useState("");
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] =
+    useState<StatusFilter>("all");
 
   const [toast, setToast] =
     useState<ToastState>(null);
@@ -94,6 +109,42 @@ function WarehousesPage() {
     void loadWarehouses();
   }, [loadWarehouses]);
 
+  const filteredWarehouses = useMemo(() => {
+    const normalizedSearch =
+      searchQuery.trim().toLowerCase();
+
+    return warehouses.filter((warehouse) => {
+      const matchesSearch =
+        normalizedSearch.length === 0 ||
+        warehouse.code
+          .toLowerCase()
+          .includes(normalizedSearch) ||
+        warehouse.name
+          .toLowerCase()
+          .includes(normalizedSearch) ||
+        (warehouse.address ?? "")
+          .toLowerCase()
+          .includes(normalizedSearch);
+
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" &&
+          warehouse.isActive) ||
+        (statusFilter === "inactive" &&
+          !warehouse.isActive);
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [warehouses, searchQuery, statusFilter]);
+
+  const activeWarehouseCount = useMemo(
+    () =>
+      warehouses.filter(
+        (warehouse) => warehouse.isActive
+      ).length,
+    [warehouses]
+  );
+
   function sortWarehouses(
     warehouseList: Warehouse[]
   ) {
@@ -103,6 +154,11 @@ function WarehousesPage() {
           secondWarehouse.code
         )
     );
+  }
+
+  function resetFilters() {
+    setSearchQuery("");
+    setStatusFilter("all");
   }
 
   function openCreateModal() {
@@ -317,6 +373,10 @@ function WarehousesPage() {
       ? "Simpan perubahan"
       : "Simpan gudang";
 
+  const hasActiveFilter =
+    searchQuery.trim().length > 0 ||
+    statusFilter !== "all";
+
   return (
     <section className="page-section">
       <div className="page-heading">
@@ -365,83 +425,209 @@ function WarehousesPage() {
       {!isLoading &&
         !errorMessage &&
         warehouses.length > 0 && (
-          <div className="table-card">
-            <table>
-              <thead>
-                <tr>
-                  <th>Kode</th>
-                  <th>Nama gudang</th>
-                  <th>Alamat</th>
-                  <th>Status</th>
-                  <th className="action-column-heading">
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
+          <div className="data-panel">
+            <div className="data-toolbar">
+              <div className="search-field">
+                <Search
+                  size={18}
+                  strokeWidth={2}
+                />
 
-              <tbody>
-                {warehouses.map((warehouse) => (
-                  <tr key={warehouse.id}>
-                    <td>
-                      <span className="code-badge">
-                        {warehouse.code}
-                      </span>
-                    </td>
+                <input
+                  type="search"
+                  value={searchQuery}
+                  placeholder="Cari kode, nama, atau alamat gudang..."
+                  aria-label="Cari gudang"
+                  onChange={(event) =>
+                    setSearchQuery(
+                      event.target.value
+                    )
+                  }
+                />
 
-                    <td className="primary-cell">
-                      {warehouse.name}
-                    </td>
+                {searchQuery && (
+                  <button
+                    className="clear-search-button"
+                    type="button"
+                    aria-label="Hapus pencarian"
+                    onClick={() =>
+                      setSearchQuery("")
+                    }
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
 
-                    <td>
-                      {warehouse.address ?? "-"}
-                    </td>
+              <div className="filter-control">
+                <SlidersHorizontal
+                  size={17}
+                  strokeWidth={2}
+                />
 
-                    <td>
-                      <span
-                        className={
-                          warehouse.isActive
-                            ? "status-badge status-active"
-                            : "status-badge status-inactive"
-                        }
-                      >
-                        {warehouse.isActive
-                          ? "Aktif"
-                          : "Tidak aktif"}
-                      </span>
-                    </td>
+                <select
+                  value={statusFilter}
+                  aria-label="Filter status gudang"
+                  onChange={(event) =>
+                    setStatusFilter(
+                      event.target
+                        .value as StatusFilter
+                    )
+                  }
+                >
+                  <option value="all">
+                    Semua status
+                  </option>
 
-                    <td>
-                      <div className="table-actions">
-                        <button
-                          className="action-button action-edit"
-                          type="button"
-                          onClick={() =>
-                            openEditModal(warehouse)
-                          }
-                        >
-                          Edit
-                        </button>
+                  <option value="active">
+                    Aktif
+                  </option>
 
-                        <button
-                          className="action-button action-danger"
-                          type="button"
-                          disabled={!warehouse.isActive}
-                          onClick={() =>
-                            setWarehouseToDeactivate(
-                              warehouse
-                            )
-                          }
-                        >
-                          {warehouse.isActive
-                            ? "Nonaktifkan"
-                            : "Nonaktif"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  <option value="inactive">
+                    Tidak aktif
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <div className="data-summary">
+              <span>
+                Menampilkan{" "}
+                <strong>
+                  {filteredWarehouses.length}
+                </strong>{" "}
+                dari{" "}
+                <strong>{warehouses.length}</strong>{" "}
+                gudang
+              </span>
+
+              <span>
+                <strong>
+                  {activeWarehouseCount}
+                </strong>{" "}
+                gudang aktif
+              </span>
+
+              {hasActiveFilter && (
+                <span className="filter-indicator">
+                  Filter diterapkan
+                </span>
+              )}
+            </div>
+
+            {filteredWarehouses.length > 0 ? (
+              <div className="table-card">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Kode</th>
+                      <th>Nama gudang</th>
+                      <th>Alamat</th>
+                      <th>Status</th>
+
+                      <th className="action-column-heading">
+                        Aksi
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {filteredWarehouses.map(
+                      (warehouse) => (
+                        <tr key={warehouse.id}>
+                          <td>
+                            <span className="code-badge">
+                              {warehouse.code}
+                            </span>
+                          </td>
+
+                          <td className="primary-cell">
+                            {warehouse.name}
+                          </td>
+
+                          <td>
+                            {warehouse.address ?? "-"}
+                          </td>
+
+                          <td>
+                            <span
+                              className={
+                                warehouse.isActive
+                                  ? "status-badge status-active"
+                                  : "status-badge status-inactive"
+                              }
+                            >
+                              {warehouse.isActive
+                                ? "Aktif"
+                                : "Tidak aktif"}
+                            </span>
+                          </td>
+
+                          <td>
+                            <div className="table-actions">
+                              <button
+                                className="action-button action-edit"
+                                type="button"
+                                onClick={() =>
+                                  openEditModal(
+                                    warehouse
+                                  )
+                                }
+                              >
+                                Edit
+                              </button>
+
+                              <button
+                                className="action-button action-danger"
+                                type="button"
+                                disabled={
+                                  !warehouse.isActive
+                                }
+                                onClick={() =>
+                                  setWarehouseToDeactivate(
+                                    warehouse
+                                  )
+                                }
+                              >
+                                {warehouse.isActive
+                                  ? "Nonaktifkan"
+                                  : "Nonaktif"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="empty-filter-state">
+                <div className="empty-filter-content">
+                  <div className="empty-filter-icon">
+                    <SearchX size={25} />
+                  </div>
+
+                  <h3>
+                    Gudang tidak ditemukan
+                  </h3>
+
+                  <p>
+                    Tidak ada gudang yang sesuai
+                    dengan kata kunci atau filter
+                    yang dipilih.
+                  </p>
+
+                  <button
+                    className="reset-filter-button"
+                    type="button"
+                    onClick={resetFilters}
+                  >
+                    Reset pencarian
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
