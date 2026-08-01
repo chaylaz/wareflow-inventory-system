@@ -13,6 +13,7 @@ import {
   type FormEvent,
 } from "react";
 
+import ConfirmDialog from "../components/ConfirmDialog";
 import Modal from "../components/Modal";
 import Toast from "../components/Toast";
 import { api } from "../lib/api";
@@ -25,6 +26,8 @@ import type {
 
 import "../styles/dataToolbar.css";
 import "../styles/tableActions.css";
+
+type ProductModalMode = "create" | "edit" | null;
 
 type StatusFilter =
   | "all"
@@ -58,16 +61,33 @@ function ProductsPage() {
   const [toast, setToast] =
     useState<ToastState>(null);
 
-  const [isCreateModalOpen, setIsCreateModalOpen] =
-    useState(false);
+  const [modalMode, setModalMode] =
+    useState<ProductModalMode>(null);
+
+  const [editingProductId, setEditingProductId] =
+    useState<string | null>(null);
+
+  const [
+    productToDeactivate,
+    setProductToDeactivate,
+  ] = useState<Product | null>(null);
+
+  const [
+    deactivatingProductId,
+    setDeactivatingProductId,
+  ] = useState<string | null>(null);
 
   const [sku, setSku] = useState("");
   const [name, setName] = useState("");
+
   const [categoryId, setCategoryId] =
     useState("");
+
   const [unit, setUnit] = useState("");
+
   const [description, setDescription] =
     useState("");
+
   const [minimumStock, setMinimumStock] =
     useState("0");
 
@@ -175,6 +195,23 @@ function ProductsPage() {
     [products]
   );
 
+  const editingProduct = useMemo(
+    () =>
+      products.find(
+        (product) =>
+          product.id === editingProductId
+      ) ?? null,
+    [products, editingProductId]
+  );
+
+  const editingCategoryIsInactive =
+    modalMode === "edit" &&
+    editingProduct !== null &&
+    !activeCategories.some(
+      (category) =>
+        category.id === editingProduct.categoryId
+    );
+
   function sortProducts(
     productList: Product[]
   ) {
@@ -191,30 +228,84 @@ function ProductsPage() {
     setStatusFilter("all");
   }
 
-  function openCreateModal() {
+  function resetForm() {
     setSku("");
     setName("");
-    setCategoryId(
-      activeCategories[0]?.id ?? ""
-    );
+    setCategoryId("");
     setUnit("");
     setDescription("");
     setMinimumStock("0");
     setFormError("");
-    setToast(null);
-    setIsCreateModalOpen(true);
   }
 
-  function closeCreateModal() {
+  function openCreateModal() {
+    resetForm();
+
+    setCategoryId(
+      activeCategories[0]?.id ?? ""
+    );
+
+    setModalMode("create");
+    setEditingProductId(null);
+    setToast(null);
+  }
+
+  function openEditModal(product: Product) {
+    const categoryIsActive =
+      activeCategories.some(
+        (category) =>
+          category.id === product.categoryId
+      );
+
+    setSku(product.sku);
+    setName(product.name);
+
+    setCategoryId(
+      categoryIsActive
+        ? product.categoryId
+        : ""
+    );
+
+    setUnit(product.unit);
+
+    setDescription(
+      product.description ?? ""
+    );
+
+    setMinimumStock(
+      product.minimumStock.toString()
+    );
+
+    setFormError(
+      categoryIsActive
+        ? ""
+        : `Kategori "${product.categoryName}" sudah tidak aktif. Pilih kategori aktif lain sebelum menyimpan perubahan.`
+    );
+
+    setEditingProductId(product.id);
+    setModalMode("edit");
+    setToast(null);
+  }
+
+  function closeModal() {
     if (isSubmitting) {
       return;
     }
 
-    setIsCreateModalOpen(false);
-    setFormError("");
+    setModalMode(null);
+    setEditingProductId(null);
+    resetForm();
   }
 
-  async function handleCreateProduct(
+  function closeConfirmDialog() {
+    if (deactivatingProductId !== null) {
+      return;
+    }
+
+    setProductToDeactivate(null);
+  }
+
+  async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
@@ -258,7 +349,7 @@ function ProductsPage() {
 
     if (!categoryId) {
       setFormError(
-        "Kategori produk wajib dipilih."
+        "Kategori aktif wajib dipilih."
       );
       return;
     }
@@ -271,9 +362,7 @@ function ProductsPage() {
     }
 
     if (
-      !Number.isInteger(
-        parsedMinimumStock
-      ) ||
+      !Number.isInteger(parsedMinimumStock) ||
       parsedMinimumStock < 0
     ) {
       setFormError(
@@ -282,53 +371,80 @@ function ProductsPage() {
       return;
     }
 
+    const requestBody = {
+      sku: normalizedSku,
+      name: normalizedName,
+      categoryId,
+      unit: normalizedUnit,
+      description:
+        normalizedDescription || null,
+      minimumStock: parsedMinimumStock,
+    };
+
     try {
       setIsSubmitting(true);
       setFormError("");
 
-      const response =
-        await api.post<Product>(
-          "/api/products",
-          {
-            sku: normalizedSku,
-            name: normalizedName,
-            categoryId,
-            unit: normalizedUnit,
-            description:
-              normalizedDescription || null,
-            minimumStock:
-              parsedMinimumStock,
-          }
+      if (modalMode === "create") {
+        const response =
+          await api.post<Product>(
+            "/api/products",
+            requestBody
+          );
+
+        setProducts((currentProducts) =>
+          sortProducts([
+            ...currentProducts,
+            response.data,
+          ])
         );
 
-      setProducts((currentProducts) =>
-        sortProducts([
-          ...currentProducts,
-          response.data,
-        ])
-      );
+        setToast({
+          type: "success",
+          message:
+            `Produk "${response.data.name}" berhasil ditambahkan.`,
+        });
+      }
 
-      setToast({
-        type: "success",
-        message:
-          `Produk "${response.data.name}" berhasil ditambahkan.`,
-      });
+      if (
+        modalMode === "edit" &&
+        editingProductId !== null
+      ) {
+        const response =
+          await api.put<Product>(
+            `/api/products/${editingProductId}`,
+            requestBody
+          );
 
-      setSku("");
-      setName("");
-      setCategoryId("");
-      setUnit("");
-      setDescription("");
-      setMinimumStock("0");
+        setProducts((currentProducts) =>
+          sortProducts(
+            currentProducts.map((product) =>
+              product.id === response.data.id
+                ? response.data
+                : product
+            )
+          )
+        );
 
-      setIsCreateModalOpen(false);
+        setToast({
+          type: "success",
+          message:
+            `Produk "${response.data.name}" berhasil diperbarui.`,
+        });
+      }
+
+      setModalMode(null);
+      setEditingProductId(null);
+      resetForm();
     } catch (error) {
       console.error(error);
 
       setFormError(
         getApiErrorMessage(
           error,
-          "Gagal menambahkan produk."
+          modalMode === "edit"
+            ? "Gagal memperbarui produk."
+            : "Gagal menambahkan produk."
         )
       );
     } finally {
@@ -336,9 +452,69 @@ function ProductsPage() {
     }
   }
 
+  async function handleConfirmDeactivate() {
+    if (productToDeactivate === null) {
+      return;
+    }
+
+    const product = productToDeactivate;
+
+    try {
+      setDeactivatingProductId(product.id);
+      setErrorMessage("");
+
+      await api.delete(
+        `/api/products/${product.id}`
+      );
+
+      setProducts((currentProducts) =>
+        currentProducts.map(
+          (currentProduct) =>
+            currentProduct.id === product.id
+              ? {
+                  ...currentProduct,
+                  isActive: false,
+                  updatedAtUtc:
+                    new Date().toISOString(),
+                }
+              : currentProduct
+        )
+      );
+
+      setToast({
+        type: "success",
+        message:
+          `Produk "${product.name}" berhasil dinonaktifkan.`,
+      });
+    } catch (error) {
+      console.error(error);
+
+      setToast({
+        type: "error",
+        message: getApiErrorMessage(
+          error,
+          "Gagal menonaktifkan produk."
+        ),
+      });
+    } finally {
+      setDeactivatingProductId(null);
+      setProductToDeactivate(null);
+    }
+  }
+
   const hasActiveFilter =
     searchQuery.trim().length > 0 ||
     statusFilter !== "all";
+
+  const modalTitle =
+    modalMode === "edit"
+      ? "Edit produk"
+      : "Tambah produk";
+
+  const submitButtonText =
+    modalMode === "edit"
+      ? "Simpan perubahan"
+      : "Simpan produk";
 
   return (
     <section className="page-section">
@@ -564,8 +740,11 @@ function ProductsPage() {
                               <button
                                 className="action-button action-edit"
                                 type="button"
-                                disabled
-                                title="Fitur edit akan ditambahkan pada tahap berikutnya."
+                                onClick={() =>
+                                  openEditModal(
+                                    product
+                                  )
+                                }
                               >
                                 Edit
                               </button>
@@ -573,8 +752,14 @@ function ProductsPage() {
                               <button
                                 className="action-button action-danger"
                                 type="button"
-                                disabled
-                                title="Fitur nonaktifkan akan ditambahkan pada tahap berikutnya."
+                                disabled={
+                                  !product.isActive
+                                }
+                                onClick={() =>
+                                  setProductToDeactivate(
+                                    product
+                                  )
+                                }
                               >
                                 {product.isActive
                                   ? "Nonaktifkan"
@@ -619,13 +804,13 @@ function ProductsPage() {
         )}
 
       <Modal
-        isOpen={isCreateModalOpen}
-        title="Tambah produk"
-        onClose={closeCreateModal}
+        isOpen={modalMode !== null}
+        title={modalTitle}
+        onClose={closeModal}
       >
         <form
           className="data-form"
-          onSubmit={handleCreateProduct}
+          onSubmit={handleSubmit}
         >
           <div className="form-field">
             <label htmlFor="product-sku">
@@ -637,7 +822,7 @@ function ProductsPage() {
               type="text"
               value={sku}
               maxLength={50}
-              placeholder="Contoh: LAP-ASUS-002"
+              placeholder="Contoh: KERTAS-A4-001"
               autoFocus
               required
               onChange={(event) =>
@@ -662,7 +847,7 @@ function ProductsPage() {
               type="text"
               value={name}
               maxLength={150}
-              placeholder="Contoh: ASUS Vivobook 15"
+              placeholder="Contoh: Kertas HVS A4"
               required
               onChange={(event) =>
                 setName(event.target.value)
@@ -683,14 +868,16 @@ function ProductsPage() {
               id="product-category"
               value={categoryId}
               required
-              onChange={(event) =>
+              onChange={(event) => {
                 setCategoryId(
                   event.target.value
-                )
-              }
+                );
+
+                setFormError("");
+              }}
             >
               <option value="" disabled>
-                Pilih kategori
+                Pilih kategori aktif
               </option>
 
               {activeCategories.map(
@@ -706,8 +893,9 @@ function ProductsPage() {
             </select>
 
             <span className="form-help-text">
-              Hanya kategori aktif yang dapat
-              dipilih.
+              {editingCategoryIsInactive
+                ? `Kategori sebelumnya "${editingProduct?.categoryName}" sudah tidak aktif. Pilih kategori aktif lain.`
+                : "Hanya kategori aktif yang dapat dipilih."}
             </span>
           </div>
 
@@ -721,7 +909,7 @@ function ProductsPage() {
               type="text"
               value={unit}
               maxLength={30}
-              placeholder="Contoh: Unit, Pcs, Box"
+              placeholder="Contoh: Pcs, Rim, Box"
               required
               onChange={(event) =>
                 setUnit(event.target.value)
@@ -792,7 +980,7 @@ function ProductsPage() {
               className="secondary-button"
               type="button"
               disabled={isSubmitting}
-              onClick={closeCreateModal}
+              onClick={closeModal}
             >
               Batal
             </button>
@@ -804,11 +992,29 @@ function ProductsPage() {
             >
               {isSubmitting
                 ? "Menyimpan..."
-                : "Simpan produk"}
+                : submitButtonText}
             </button>
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={productToDeactivate !== null}
+        title="Nonaktifkan produk?"
+        description={
+          productToDeactivate
+            ? `Produk "${productToDeactivate.name}" akan berubah menjadi tidak aktif. Data produk tetap tersimpan di dalam sistem.`
+            : ""
+        }
+        confirmLabel="Nonaktifkan"
+        isProcessing={
+          deactivatingProductId !== null
+        }
+        onCancel={closeConfirmDialog}
+        onConfirm={() =>
+          void handleConfirmDeactivate()
+        }
+      />
 
       {toast && (
         <Toast
