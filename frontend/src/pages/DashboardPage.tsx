@@ -1,8 +1,9 @@
 import {
   CheckCircle2,
+  Package,
   PackageCheck,
   Tags,
-  Warehouse,
+  Warehouse as WarehouseIcon,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
@@ -11,7 +12,8 @@ import { api } from "../lib/api";
 
 import type {
   Category,
-  Warehouse as WarehouseType,
+  Product,
+  Warehouse,
 } from "../types/inventory";
 
 type DashboardSummary = {
@@ -19,6 +21,8 @@ type DashboardSummary = {
   activeCategories: number;
   totalWarehouses: number;
   activeWarehouses: number;
+  totalProducts: number;
+  activeProducts: number;
 };
 
 const initialSummary: DashboardSummary = {
@@ -26,13 +30,17 @@ const initialSummary: DashboardSummary = {
   activeCategories: 0,
   totalWarehouses: 0,
   activeWarehouses: 0,
+  totalProducts: 0,
+  activeProducts: 0,
 };
 
 function DashboardPage() {
   const [summary, setSummary] =
     useState<DashboardSummary>(initialSummary);
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] =
+    useState(true);
+
   const [errorMessage, setErrorMessage] =
     useState("");
 
@@ -44,12 +52,15 @@ function DashboardPage() {
         const [
           categoriesResponse,
           warehousesResponse,
+          productsResponse,
         ] = await Promise.all([
           api.get<Category[]>("/api/categories"),
 
-          api.get<WarehouseType[]>(
+          api.get<Warehouse[]>(
             "/api/warehouses"
           ),
+
+          api.get<Product[]>("/api/products"),
         ]);
 
         if (!isMounted) {
@@ -62,18 +73,36 @@ function DashboardPage() {
         const warehouses =
           warehousesResponse.data;
 
+        const products =
+          productsResponse.data;
+
         setSummary({
-          totalCategories: categories.length,
+          totalCategories:
+            categories.length,
 
-          activeCategories: categories.filter(
-            (category) => category.isActive
-          ).length,
+          activeCategories:
+            categories.filter(
+              (category) =>
+                category.isActive
+            ).length,
 
-          totalWarehouses: warehouses.length,
+          totalWarehouses:
+            warehouses.length,
 
-          activeWarehouses: warehouses.filter(
-            (warehouse) => warehouse.isActive
-          ).length,
+          activeWarehouses:
+            warehouses.filter(
+              (warehouse) =>
+                warehouse.isActive
+            ).length,
+
+          totalProducts:
+            products.length,
+
+          activeProducts:
+            products.filter(
+              (product) =>
+                product.isActive
+            ).length,
         });
       } catch (error) {
         console.error(error);
@@ -101,36 +130,57 @@ function DashboardPage() {
     {
       label: "Total kategori",
       value: summary.totalCategories,
-      description: "Seluruh kategori barang",
+      description:
+        "Seluruh kategori barang",
       icon: Tags,
       tone: "blue",
     },
     {
       label: "Kategori aktif",
       value: summary.activeCategories,
-      description: "Kategori yang dapat digunakan",
+      description:
+        "Kategori yang dapat digunakan",
       icon: CheckCircle2,
       tone: "green",
     },
     {
       label: "Total gudang",
       value: summary.totalWarehouses,
-      description: "Seluruh lokasi gudang",
-      icon: Warehouse,
+      description:
+        "Seluruh lokasi gudang",
+      icon: WarehouseIcon,
       tone: "purple",
     },
     {
       label: "Gudang aktif",
       value: summary.activeWarehouses,
-      description: "Gudang yang sedang digunakan",
-      icon: PackageCheck,
+      description:
+        "Gudang yang sedang digunakan",
+      icon: WarehouseIcon,
       tone: "orange",
+    },
+    {
+      label: "Total produk",
+      value: summary.totalProducts,
+      description:
+        "Seluruh produk inventory",
+      icon: Package,
+      tone: "blue",
+    },
+    {
+      label: "Produk aktif",
+      value: summary.activeProducts,
+      description:
+        "Produk yang dapat digunakan",
+      icon: PackageCheck,
+      tone: "green",
     },
   ];
 
   const totalActiveData =
     summary.activeCategories +
-    summary.activeWarehouses;
+    summary.activeWarehouses +
+    summary.activeProducts;
 
   return (
     <section className="page-section">
@@ -140,11 +190,14 @@ function DashboardPage() {
             Inventory overview
           </p>
 
-          <h1>Selamat datang di WareFlow</h1>
+          <h1>
+            Selamat datang di WareFlow
+          </h1>
 
           <p>
-            Pantau kategori dan lokasi gudang dalam
-            satu sistem yang terintegrasi.
+            Pantau produk, kategori, dan lokasi
+            gudang dalam satu sistem inventory
+            yang terintegrasi.
           </p>
         </div>
 
@@ -154,7 +207,7 @@ function DashboardPage() {
           <strong>{totalActiveData}</strong>
 
           <small>
-            Kategori dan gudang aktif
+            Produk, kategori, dan gudang aktif
           </small>
         </div>
       </div>
