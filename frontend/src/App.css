@@ -572,3 +572,37 @@ tbody tr:hover {
     max-height: calc(100vh - 24px);
   }
 }
+
+.form-field select {
+  width: 100%;
+  min-height: 43px;
+  padding: 11px 38px 11px 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  outline: none;
+  background: #ffffff;
+  color: #0f172a;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.form-field select:focus {
+  border-color: #2563eb;
+  box-shadow:
+    0 0 0 3px rgb(37 99 235 / 12%);
+}
+
+.form-help-text {
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.message-warning {
+  margin-bottom: 20px;
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}

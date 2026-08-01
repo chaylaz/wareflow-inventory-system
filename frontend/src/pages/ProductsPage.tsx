@@ -10,52 +10,124 @@ import {
   useEffect,
   useMemo,
   useState,
+  type FormEvent,
 } from "react";
 
+import Modal from "../components/Modal";
+import Toast from "../components/Toast";
 import { api } from "../lib/api";
 import { getApiErrorMessage } from "../lib/getApiErrorMessage";
-import type { Product } from "../types/inventory";
+
+import type {
+  Category,
+  Product,
+} from "../types/inventory";
 
 import "../styles/dataToolbar.css";
 import "../styles/tableActions.css";
 
-type StatusFilter = "all" | "active" | "inactive";
+type StatusFilter =
+  | "all"
+  | "active"
+  | "inactive";
+
+type ToastState = {
+  type: "success" | "error";
+  message: string;
+} | null;
 
 function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [products, setProducts] =
+    useState<Product[]>([]);
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategories, setActiveCategories] =
+    useState<Category[]>([]);
+
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  const [searchQuery, setSearchQuery] =
+    useState("");
+
   const [statusFilter, setStatusFilter] =
     useState<StatusFilter>("all");
 
-  const loadProducts = useCallback(async () => {
-    try {
-      setErrorMessage("");
+  const [toast, setToast] =
+    useState<ToastState>(null);
 
-      const response = await api.get<Product[]>(
-        "/api/products"
-      );
+  const [isCreateModalOpen, setIsCreateModalOpen] =
+    useState(false);
 
-      setProducts(response.data);
-    } catch (error) {
-      console.error(error);
+  const [sku, setSku] = useState("");
+  const [name, setName] = useState("");
+  const [categoryId, setCategoryId] =
+    useState("");
+  const [unit, setUnit] = useState("");
+  const [description, setDescription] =
+    useState("");
+  const [minimumStock, setMinimumStock] =
+    useState("0");
 
-      setErrorMessage(
-        getApiErrorMessage(
-          error,
-          "Gagal mengambil data produk."
-        )
-      );
-    } finally {
-      setIsLoading(false);
-    }
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
+
+  const [formError, setFormError] =
+    useState("");
+
+  const closeToast = useCallback(() => {
+    setToast(null);
   }, []);
 
+  const loadInitialData =
+    useCallback(async () => {
+      try {
+        setErrorMessage("");
+
+        const [
+          productsResponse,
+          categoriesResponse,
+        ] = await Promise.all([
+          api.get<Product[]>("/api/products"),
+          api.get<Category[]>("/api/categories"),
+        ]);
+
+        setProducts(productsResponse.data);
+
+        setActiveCategories(
+          categoriesResponse.data
+            .filter(
+              (category) => category.isActive
+            )
+            .sort(
+              (
+                firstCategory,
+                secondCategory
+              ) =>
+                firstCategory.name.localeCompare(
+                  secondCategory.name
+                )
+            )
+        );
+      } catch (error) {
+        console.error(error);
+
+        setErrorMessage(
+          getApiErrorMessage(
+            error,
+            "Gagal mengambil data produk."
+          )
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    }, []);
+
   useEffect(() => {
-    void loadProducts();
-  }, [loadProducts]);
+    void loadInitialData();
+  }, [loadInitialData]);
 
   const filteredProducts = useMemo(() => {
     const normalizedSearch =
@@ -89,18 +161,179 @@ function ProductsPage() {
 
       return matchesSearch && matchesStatus;
     });
-  }, [products, searchQuery, statusFilter]);
+  }, [
+    products,
+    searchQuery,
+    statusFilter,
+  ]);
 
   const activeProductCount = useMemo(
     () =>
-      products.filter((product) => product.isActive)
-        .length,
+      products.filter(
+        (product) => product.isActive
+      ).length,
     [products]
   );
+
+  function sortProducts(
+    productList: Product[]
+  ) {
+    return [...productList].sort(
+      (firstProduct, secondProduct) =>
+        firstProduct.name.localeCompare(
+          secondProduct.name
+        )
+    );
+  }
 
   function resetFilters() {
     setSearchQuery("");
     setStatusFilter("all");
+  }
+
+  function openCreateModal() {
+    setSku("");
+    setName("");
+    setCategoryId(
+      activeCategories[0]?.id ?? ""
+    );
+    setUnit("");
+    setDescription("");
+    setMinimumStock("0");
+    setFormError("");
+    setToast(null);
+    setIsCreateModalOpen(true);
+  }
+
+  function closeCreateModal() {
+    if (isSubmitting) {
+      return;
+    }
+
+    setIsCreateModalOpen(false);
+    setFormError("");
+  }
+
+  async function handleCreateProduct(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    const normalizedSku =
+      sku.trim().toUpperCase();
+
+    const normalizedName = name.trim();
+    const normalizedUnit = unit.trim();
+
+    const normalizedDescription =
+      description.trim();
+
+    const parsedMinimumStock =
+      Number(minimumStock);
+
+    if (!normalizedSku) {
+      setFormError(
+        "SKU produk wajib diisi."
+      );
+      return;
+    }
+
+    if (
+      !/^[A-Z0-9-]+$/.test(
+        normalizedSku
+      )
+    ) {
+      setFormError(
+        "SKU hanya boleh berisi huruf, angka, dan tanda hubung."
+      );
+      return;
+    }
+
+    if (!normalizedName) {
+      setFormError(
+        "Nama produk wajib diisi."
+      );
+      return;
+    }
+
+    if (!categoryId) {
+      setFormError(
+        "Kategori produk wajib dipilih."
+      );
+      return;
+    }
+
+    if (!normalizedUnit) {
+      setFormError(
+        "Satuan produk wajib diisi."
+      );
+      return;
+    }
+
+    if (
+      !Number.isInteger(
+        parsedMinimumStock
+      ) ||
+      parsedMinimumStock < 0
+    ) {
+      setFormError(
+        "Minimum stok harus berupa bilangan bulat nol atau lebih."
+      );
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setFormError("");
+
+      const response =
+        await api.post<Product>(
+          "/api/products",
+          {
+            sku: normalizedSku,
+            name: normalizedName,
+            categoryId,
+            unit: normalizedUnit,
+            description:
+              normalizedDescription || null,
+            minimumStock:
+              parsedMinimumStock,
+          }
+        );
+
+      setProducts((currentProducts) =>
+        sortProducts([
+          ...currentProducts,
+          response.data,
+        ])
+      );
+
+      setToast({
+        type: "success",
+        message:
+          `Produk "${response.data.name}" berhasil ditambahkan.`,
+      });
+
+      setSku("");
+      setName("");
+      setCategoryId("");
+      setUnit("");
+      setDescription("");
+      setMinimumStock("0");
+
+      setIsCreateModalOpen(false);
+    } catch (error) {
+      console.error(error);
+
+      setFormError(
+        getApiErrorMessage(
+          error,
+          "Gagal menambahkan produk."
+        )
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const hasActiveFilter =
@@ -118,18 +351,36 @@ function ProductsPage() {
           <h1>Products</h1>
 
           <p>
-            Kelola daftar produk, kategori, satuan, dan
-            batas minimum stok.
+            Kelola daftar produk, kategori,
+            satuan, dan batas minimum stok.
           </p>
         </div>
 
         <button
           className="primary-button"
           type="button"
+          disabled={
+            activeCategories.length === 0
+          }
+          title={
+            activeCategories.length === 0
+              ? "Tambahkan atau aktifkan kategori terlebih dahulu."
+              : "Tambah produk baru"
+          }
+          onClick={openCreateModal}
         >
           Tambah produk
         </button>
       </div>
+
+      {!isLoading &&
+        activeCategories.length === 0 && (
+          <div className="message-card message-warning">
+            Belum ada kategori aktif. Aktifkan
+            atau tambahkan kategori sebelum
+            membuat produk.
+          </div>
+        )}
 
       {isLoading && (
         <div className="message-card">
@@ -157,7 +408,10 @@ function ProductsPage() {
           <div className="data-panel">
             <div className="data-toolbar">
               <div className="search-field">
-                <Search size={18} strokeWidth={2} />
+                <Search
+                  size={18}
+                  strokeWidth={2}
+                />
 
                 <input
                   type="search"
@@ -165,7 +419,9 @@ function ProductsPage() {
                   placeholder="Cari SKU, nama, kategori, atau satuan..."
                   aria-label="Cari produk"
                   onChange={(event) =>
-                    setSearchQuery(event.target.value)
+                    setSearchQuery(
+                      event.target.value
+                    )
                   }
                 />
 
@@ -174,7 +430,9 @@ function ProductsPage() {
                     className="clear-search-button"
                     type="button"
                     aria-label="Hapus pencarian"
-                    onClick={() => setSearchQuery("")}
+                    onClick={() =>
+                      setSearchQuery("")
+                    }
                   >
                     <X size={16} />
                   </button>
@@ -192,7 +450,8 @@ function ProductsPage() {
                   aria-label="Filter status produk"
                   onChange={(event) =>
                     setStatusFilter(
-                      event.target.value as StatusFilter
+                      event.target
+                        .value as StatusFilter
                     )
                   }
                 >
@@ -217,12 +476,17 @@ function ProductsPage() {
                 <strong>
                   {filteredProducts.length}
                 </strong>{" "}
-                dari <strong>{products.length}</strong>{" "}
+                dari{" "}
+                <strong>
+                  {products.length}
+                </strong>{" "}
                 produk
               </span>
 
               <span>
-                <strong>{activeProductCount}</strong>{" "}
+                <strong>
+                  {activeProductCount}
+                </strong>{" "}
                 produk aktif
               </span>
 
@@ -244,6 +508,7 @@ function ProductsPage() {
                       <th>Satuan</th>
                       <th>Minimum stok</th>
                       <th>Status</th>
+
                       <th className="action-column-heading">
                         Aksi
                       </th>
@@ -251,64 +516,75 @@ function ProductsPage() {
                   </thead>
 
                   <tbody>
-                    {filteredProducts.map((product) => (
-                      <tr key={product.id}>
-                        <td>
-                          <span className="code-badge">
-                            {product.sku}
-                          </span>
-                        </td>
+                    {filteredProducts.map(
+                      (product) => (
+                        <tr key={product.id}>
+                          <td>
+                            <span className="code-badge">
+                              {product.sku}
+                            </span>
+                          </td>
 
-                        <td className="primary-cell">
-                          {product.name}
-                        </td>
+                          <td className="primary-cell">
+                            {product.name}
+                          </td>
 
-                        <td>{product.categoryName}</td>
+                          <td>
+                            {product.categoryName}
+                          </td>
 
-                        <td>{product.unit}</td>
+                          <td>
+                            {product.unit}
+                          </td>
 
-                        <td>
-                          <span className="stock-minimum-badge">
-                            {product.minimumStock}
-                          </span>
-                        </td>
+                          <td>
+                            <span className="stock-minimum-badge">
+                              {
+                                product.minimumStock
+                              }
+                            </span>
+                          </td>
 
-                        <td>
-                          <span
-                            className={
-                              product.isActive
-                                ? "status-badge status-active"
-                                : "status-badge status-inactive"
-                            }
-                          >
-                            {product.isActive
-                              ? "Aktif"
-                              : "Tidak aktif"}
-                          </span>
-                        </td>
-
-                        <td>
-                          <div className="table-actions">
-                            <button
-                              className="action-button action-edit"
-                              type="button"
-                            >
-                              Edit
-                            </button>
-
-                            <button
-                              className="action-button action-danger"
-                              type="button"
-                              disabled={!product.isActive}
+                          <td>
+                            <span
+                              className={
+                                product.isActive
+                                  ? "status-badge status-active"
+                                  : "status-badge status-inactive"
+                              }
                             >
                               {product.isActive
-                                ? "Nonaktifkan"
-                                : "Nonaktif"}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                                ? "Aktif"
+                                : "Tidak aktif"}
+                            </span>
+                          </td>
+
+                          <td>
+                            <div className="table-actions">
+                              <button
+                                className="action-button action-edit"
+                                type="button"
+                                disabled
+                                title="Fitur edit akan ditambahkan pada tahap berikutnya."
+                              >
+                                Edit
+                              </button>
+
+                              <button
+                                className="action-button action-danger"
+                                type="button"
+                                disabled
+                                title="Fitur nonaktifkan akan ditambahkan pada tahap berikutnya."
+                              >
+                                {product.isActive
+                                  ? "Nonaktifkan"
+                                  : "Nonaktif"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -319,11 +595,14 @@ function ProductsPage() {
                     <SearchX size={25} />
                   </div>
 
-                  <h3>Produk tidak ditemukan</h3>
+                  <h3>
+                    Produk tidak ditemukan
+                  </h3>
 
                   <p>
-                    Tidak ada produk yang sesuai dengan
-                    pencarian atau filter yang dipilih.
+                    Tidak ada produk yang sesuai
+                    dengan pencarian atau filter
+                    yang dipilih.
                   </p>
 
                   <button
@@ -338,6 +617,206 @@ function ProductsPage() {
             )}
           </div>
         )}
+
+      <Modal
+        isOpen={isCreateModalOpen}
+        title="Tambah produk"
+        onClose={closeCreateModal}
+      >
+        <form
+          className="data-form"
+          onSubmit={handleCreateProduct}
+        >
+          <div className="form-field">
+            <label htmlFor="product-sku">
+              SKU produk
+            </label>
+
+            <input
+              id="product-sku"
+              type="text"
+              value={sku}
+              maxLength={50}
+              placeholder="Contoh: LAP-ASUS-002"
+              autoFocus
+              required
+              onChange={(event) =>
+                setSku(
+                  event.target.value.toUpperCase()
+                )
+              }
+            />
+
+            <span className="character-counter">
+              {sku.length}/50
+            </span>
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="product-name">
+              Nama produk
+            </label>
+
+            <input
+              id="product-name"
+              type="text"
+              value={name}
+              maxLength={150}
+              placeholder="Contoh: ASUS Vivobook 15"
+              required
+              onChange={(event) =>
+                setName(event.target.value)
+              }
+            />
+
+            <span className="character-counter">
+              {name.length}/150
+            </span>
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="product-category">
+              Kategori
+            </label>
+
+            <select
+              id="product-category"
+              value={categoryId}
+              required
+              onChange={(event) =>
+                setCategoryId(
+                  event.target.value
+                )
+              }
+            >
+              <option value="" disabled>
+                Pilih kategori
+              </option>
+
+              {activeCategories.map(
+                (category) => (
+                  <option
+                    key={category.id}
+                    value={category.id}
+                  >
+                    {category.name}
+                  </option>
+                )
+              )}
+            </select>
+
+            <span className="form-help-text">
+              Hanya kategori aktif yang dapat
+              dipilih.
+            </span>
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="product-unit">
+              Satuan
+            </label>
+
+            <input
+              id="product-unit"
+              type="text"
+              value={unit}
+              maxLength={30}
+              placeholder="Contoh: Unit, Pcs, Box"
+              required
+              onChange={(event) =>
+                setUnit(event.target.value)
+              }
+            />
+
+            <span className="character-counter">
+              {unit.length}/30
+            </span>
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="minimum-stock">
+              Minimum stok
+            </label>
+
+            <input
+              id="minimum-stock"
+              type="number"
+              value={minimumStock}
+              min={0}
+              step={1}
+              required
+              onChange={(event) =>
+                setMinimumStock(
+                  event.target.value
+                )
+              }
+            />
+
+            <span className="form-help-text">
+              Digunakan sebagai batas peringatan
+              stok rendah.
+            </span>
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="product-description">
+              Deskripsi
+            </label>
+
+            <textarea
+              id="product-description"
+              value={description}
+              maxLength={500}
+              rows={4}
+              placeholder="Tuliskan deskripsi produk"
+              onChange={(event) =>
+                setDescription(
+                  event.target.value
+                )
+              }
+            />
+
+            <span className="character-counter">
+              {description.length}/500
+            </span>
+          </div>
+
+          {formError && (
+            <div className="form-error">
+              {formError}
+            </div>
+          )}
+
+          <div className="form-actions">
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={isSubmitting}
+              onClick={closeCreateModal}
+            >
+              Batal
+            </button>
+
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={isSubmitting}
+            >
+              {isSubmitting
+                ? "Menyimpan..."
+                : "Simpan produk"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {toast && (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          onClose={closeToast}
+        />
+      )}
     </section>
   );
 }
