@@ -1,42 +1,76 @@
 import {
-  CheckCircle2,
-  Package,
+  AlertTriangle,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Boxes,
+  CircleAlert,
   PackageCheck,
   Tags,
   Warehouse as WarehouseIcon,
 } from "lucide-react";
 
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { api } from "../lib/api";
+import { getApiErrorMessage } from "../lib/getApiErrorMessage";
 
 import type {
   Category,
+  InventoryStock,
   Product,
+  StockTransaction,
   Warehouse,
 } from "../types/inventory";
 
-type DashboardSummary = {
-  totalCategories: number;
-  activeCategories: number;
-  totalWarehouses: number;
-  activeWarehouses: number;
-  totalProducts: number;
-  activeProducts: number;
+import "../styles/dashboardInventory.css";
+
+type DashboardData = {
+  categories: Category[];
+  warehouses: Warehouse[];
+  products: Product[];
+  stocks: InventoryStock[];
+  transactions: StockTransaction[];
 };
 
-const initialSummary: DashboardSummary = {
-  totalCategories: 0,
-  activeCategories: 0,
-  totalWarehouses: 0,
-  activeWarehouses: 0,
-  totalProducts: 0,
-  activeProducts: 0,
+const initialDashboardData: DashboardData = {
+  categories: [],
+  warehouses: [],
+  products: [],
+  stocks: [],
+  transactions: [],
 };
+
+const dateFormatter = new Intl.DateTimeFormat(
+  "id-ID",
+  {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Jakarta",
+  }
+);
+
+function formatTransactionDate(
+  dateValue: string
+) {
+  const date = new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return `${dateFormatter.format(date)} WIB`;
+}
 
 function DashboardPage() {
-  const [summary, setSummary] =
-    useState<DashboardSummary>(initialSummary);
+  const [dashboardData, setDashboardData] =
+    useState<DashboardData>(
+      initialDashboardData
+    );
 
   const [isLoading, setIsLoading] =
     useState(true);
@@ -44,147 +78,243 @@ function DashboardPage() {
   const [errorMessage, setErrorMessage] =
     useState("");
 
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadDashboard() {
+  const loadDashboard =
+    useCallback(async () => {
       try {
+        setErrorMessage("");
+
         const [
           categoriesResponse,
           warehousesResponse,
           productsResponse,
+          stocksResponse,
+          transactionsResponse,
         ] = await Promise.all([
-          api.get<Category[]>("/api/categories"),
+          api.get<Category[]>(
+            "/api/categories"
+          ),
 
           api.get<Warehouse[]>(
             "/api/warehouses"
           ),
 
-          api.get<Product[]>("/api/products"),
+          api.get<Product[]>(
+            "/api/products"
+          ),
+
+          api.get<InventoryStock[]>(
+            "/api/stocks"
+          ),
+
+          api.get<StockTransaction[]>(
+            "/api/stocks/history"
+          ),
         ]);
 
-        if (!isMounted) {
-          return;
-        }
+        setDashboardData({
+          categories:
+            categoriesResponse.data,
 
-        const categories =
-          categoriesResponse.data;
+          warehouses:
+            warehousesResponse.data,
 
-        const warehouses =
-          warehousesResponse.data;
+          products:
+            productsResponse.data,
 
-        const products =
-          productsResponse.data;
+          stocks:
+            stocksResponse.data,
 
-        setSummary({
-          totalCategories:
-            categories.length,
-
-          activeCategories:
-            categories.filter(
-              (category) =>
-                category.isActive
-            ).length,
-
-          totalWarehouses:
-            warehouses.length,
-
-          activeWarehouses:
-            warehouses.filter(
-              (warehouse) =>
-                warehouse.isActive
-            ).length,
-
-          totalProducts:
-            products.length,
-
-          activeProducts:
-            products.filter(
-              (product) =>
-                product.isActive
-            ).length,
+          transactions:
+            transactionsResponse.data,
         });
       } catch (error) {
         console.error(error);
 
-        if (isMounted) {
-          setErrorMessage(
-            "Gagal mengambil ringkasan data dari backend."
-          );
-        }
+        setErrorMessage(
+          getApiErrorMessage(
+            error,
+            "Gagal mengambil ringkasan dashboard."
+          )
+        );
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       }
-    }
+    }, []);
 
+  useEffect(() => {
     void loadDashboard();
+  }, [loadDashboard]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const activeCategories = useMemo(
+    () =>
+      dashboardData.categories.filter(
+        (category) => category.isActive
+      ).length,
+    [dashboardData.categories]
+  );
+
+  const activeWarehouses = useMemo(
+    () =>
+      dashboardData.warehouses.filter(
+        (warehouse) =>
+          warehouse.isActive
+      ).length,
+    [dashboardData.warehouses]
+  );
+
+  const activeProducts = useMemo(
+    () =>
+      dashboardData.products.filter(
+        (product) => product.isActive
+      ).length,
+    [dashboardData.products]
+  );
+
+  const totalStockQuantity = useMemo(
+    () =>
+      dashboardData.stocks.reduce(
+        (total, stock) =>
+          total + stock.quantity,
+        0
+      ),
+    [dashboardData.stocks]
+  );
+
+  const lowStockCount = useMemo(
+    () =>
+      dashboardData.stocks.filter(
+        (stock) =>
+          stock.stockStatus === "LowStock"
+      ).length,
+    [dashboardData.stocks]
+  );
+
+  const outOfStockCount = useMemo(
+    () =>
+      dashboardData.stocks.filter(
+        (stock) =>
+          stock.stockStatus ===
+          "OutOfStock"
+      ).length,
+    [dashboardData.stocks]
+  );
+
+  const stockAlerts = useMemo(
+    () =>
+      dashboardData.stocks
+        .filter(
+          (stock) =>
+            stock.stockStatus ===
+              "LowStock" ||
+            stock.stockStatus ===
+              "OutOfStock"
+        )
+        .sort((firstStock, secondStock) => {
+          if (
+            firstStock.stockStatus ===
+              "OutOfStock" &&
+            secondStock.stockStatus !==
+              "OutOfStock"
+          ) {
+            return -1;
+          }
+
+          if (
+            firstStock.stockStatus !==
+              "OutOfStock" &&
+            secondStock.stockStatus ===
+              "OutOfStock"
+          ) {
+            return 1;
+          }
+
+          return (
+            firstStock.quantity -
+            secondStock.quantity
+          );
+        })
+        .slice(0, 5),
+    [dashboardData.stocks]
+  );
+
+  const recentTransactions = useMemo(
+    () =>
+      [...dashboardData.transactions]
+        .sort(
+          (
+            firstTransaction,
+            secondTransaction
+          ) =>
+            new Date(
+              secondTransaction.createdAtUtc
+            ).getTime() -
+            new Date(
+              firstTransaction.createdAtUtc
+            ).getTime()
+        )
+        .slice(0, 5),
+    [dashboardData.transactions]
+  );
+
+  const activeMasterData =
+    activeCategories +
+    activeWarehouses +
+    activeProducts;
 
   const summaryCards = [
     {
-      label: "Total kategori",
-      value: summary.totalCategories,
+      label: "Produk aktif",
+      value: activeProducts,
       description:
-        "Seluruh kategori barang",
-      icon: Tags,
+        "Produk yang dapat digunakan",
+      icon: PackageCheck,
       tone: "blue",
     },
     {
-      label: "Kategori aktif",
-      value: summary.activeCategories,
+      label: "Gudang aktif",
+      value: activeWarehouses,
       description:
-        "Kategori yang dapat digunakan",
-      icon: CheckCircle2,
-      tone: "green",
-    },
-    {
-      label: "Total gudang",
-      value: summary.totalWarehouses,
-      description:
-        "Seluruh lokasi gudang",
+        "Lokasi penyimpanan aktif",
       icon: WarehouseIcon,
       tone: "purple",
     },
     {
-      label: "Gudang aktif",
-      value: summary.activeWarehouses,
+      label: "Kategori aktif",
+      value: activeCategories,
       description:
-        "Gudang yang sedang digunakan",
-      icon: WarehouseIcon,
-      tone: "orange",
+        "Kategori yang dapat dipilih",
+      icon: Tags,
+      tone: "green",
     },
     {
-      label: "Total produk",
-      value: summary.totalProducts,
+      label: "Total stok",
+      value: totalStockQuantity,
       description:
-        "Seluruh produk inventory",
-      icon: Package,
+        "Akumulasi kuantitas barang",
+      icon: Boxes,
       tone: "blue",
     },
     {
-      label: "Produk aktif",
-      value: summary.activeProducts,
+      label: "Stok rendah",
+      value: lowStockCount,
       description:
-        "Produk yang dapat digunakan",
-      icon: PackageCheck,
-      tone: "green",
+        "Mencapai batas minimum",
+      icon: AlertTriangle,
+      tone: "warning",
+    },
+    {
+      label: "Stok habis",
+      value: outOfStockCount,
+      description:
+        "Saldo stok bernilai nol",
+      icon: CircleAlert,
+      tone: "danger",
     },
   ];
 
-  const totalActiveData =
-    summary.activeCategories +
-    summary.activeWarehouses +
-    summary.activeProducts;
-
   return (
     <section className="page-section">
-      <div className="dashboard-hero">
+      <div className="inventory-dashboard-hero">
         <div>
           <p className="page-eyebrow">
             Inventory overview
@@ -195,37 +325,43 @@ function DashboardPage() {
           </h1>
 
           <p>
-            Pantau produk, kategori, dan lokasi
-            gudang dalam satu sistem inventory
-            yang terintegrasi.
+            Pantau kondisi stok, master data,
+            dan aktivitas barang dalam satu
+            dashboard inventory.
           </p>
+
+          <button
+            className="inventory-dashboard-refresh"
+            type="button"
+            disabled={isLoading}
+            onClick={() => {
+              setIsLoading(true);
+              void loadDashboard();
+            }}
+          >
+            {isLoading
+              ? "Memuat data..."
+              : "Perbarui dashboard"}
+          </button>
         </div>
 
-        <div className="dashboard-hero-stat">
-          <span>Data aktif</span>
+        <div className="inventory-dashboard-hero-stat">
+          <span>Total stok aktual</span>
 
-          <strong>{totalActiveData}</strong>
+          <strong>
+            {totalStockQuantity}
+          </strong>
 
           <small>
-            Produk, kategori, dan gudang aktif
+            Dari {dashboardData.stocks.length}{" "}
+            kombinasi produk dan gudang
           </small>
-        </div>
-      </div>
-
-      <div className="dashboard-section-heading">
-        <div>
-          <h2>Ringkasan sistem</h2>
-
-          <p>
-            Informasi terbaru berdasarkan data
-            yang tersimpan.
-          </p>
         </div>
       </div>
 
       {isLoading && (
         <div className="message-card">
-          Memuat ringkasan data...
+          Memuat ringkasan dashboard...
         </div>
       )}
 
@@ -236,43 +372,256 @@ function DashboardPage() {
       )}
 
       {!isLoading && !errorMessage && (
-        <div className="summary-grid">
-          {summaryCards.map((card) => {
-            const Icon = card.icon;
+        <>
+          <div className="inventory-dashboard-section-heading">
+            <div>
+              <h2>Ringkasan inventory</h2>
 
-            return (
-              <article
-                key={card.label}
-                className={`summary-card summary-card-${card.tone}`}
-              >
-                <div className="summary-card-header">
-                  <div className="summary-icon">
-                    <Icon
-                      size={21}
-                      strokeWidth={2}
-                    />
+              <p>
+                Kondisi terbaru berdasarkan data
+                yang tersimpan.
+              </p>
+            </div>
+
+            <span>
+              {activeMasterData} master data aktif
+            </span>
+          </div>
+
+          <div className="inventory-summary-grid">
+            {summaryCards.map((card) => {
+              const Icon = card.icon;
+
+              return (
+                <article
+                  key={card.label}
+                  className={`inventory-summary-card inventory-summary-${card.tone}`}
+                >
+                  <div className="inventory-summary-header">
+                    <div className="inventory-summary-icon">
+                      <Icon
+                        size={21}
+                        strokeWidth={2}
+                      />
+                    </div>
+
+                    <span>Live</span>
                   </div>
 
-                  <span className="summary-status">
-                    Live
-                  </span>
+                  <p>{card.label}</p>
+
+                  <strong>{card.value}</strong>
+
+                  <small>
+                    {card.description}
+                  </small>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className="inventory-dashboard-content-grid">
+            <section className="inventory-dashboard-panel">
+              <div className="inventory-dashboard-panel-heading">
+                <div>
+                  <h2>
+                    Stok perlu perhatian
+                  </h2>
+
+                  <p>
+                    Produk dengan kondisi rendah
+                    atau habis.
+                  </p>
                 </div>
 
-                <p className="summary-label">
-                  {card.label}
-                </p>
+                <span>
+                  {stockAlerts.length} data
+                </span>
+              </div>
 
-                <strong className="summary-value">
-                  {card.value}
-                </strong>
+              {stockAlerts.length === 0 ? (
+                <div className="inventory-dashboard-empty">
+                  <PackageCheck size={28} />
 
-                <p className="summary-description">
-                  {card.description}
-                </p>
-              </article>
-            );
-          })}
-        </div>
+                  <strong>
+                    Kondisi stok aman
+                  </strong>
+
+                  <p>
+                    Tidak ada stok rendah atau
+                    stok habis.
+                  </p>
+                </div>
+              ) : (
+                <div className="inventory-alert-list">
+                  {stockAlerts.map((stock) => (
+                    <article
+                      key={stock.id}
+                      className="inventory-alert-item"
+                    >
+                      <div className="inventory-alert-main">
+                        <span className="code-badge">
+                          {stock.productSku}
+                        </span>
+
+                        <strong>
+                          {stock.productName}
+                        </strong>
+
+                        <small>
+                          {stock.warehouseCode} —{" "}
+                          {stock.warehouseName}
+                        </small>
+                      </div>
+
+                      <div className="inventory-alert-value">
+                        <strong>
+                          {stock.quantity}{" "}
+                          {stock.unit}
+                        </strong>
+
+                        <span>
+                          Minimum{" "}
+                          {stock.minimumStock}{" "}
+                          {stock.unit}
+                        </span>
+
+                        <em
+                          className={
+                            stock.stockStatus ===
+                            "OutOfStock"
+                              ? "inventory-alert-status inventory-alert-out"
+                              : "inventory-alert-status inventory-alert-low"
+                          }
+                        >
+                          {stock.stockStatus ===
+                          "OutOfStock"
+                            ? "Stok habis"
+                            : "Stok rendah"}
+                        </em>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="inventory-dashboard-panel">
+              <div className="inventory-dashboard-panel-heading">
+                <div>
+                  <h2>
+                    Aktivitas terbaru
+                  </h2>
+
+                  <p>
+                    Lima transaksi stok terbaru.
+                  </p>
+                </div>
+
+                <span>
+                  {
+                    dashboardData.transactions
+                      .length
+                  }{" "}
+                  transaksi
+                </span>
+              </div>
+
+              {recentTransactions.length ===
+              0 ? (
+                <div className="inventory-dashboard-empty">
+                  <Boxes size={28} />
+
+                  <strong>
+                    Belum ada aktivitas
+                  </strong>
+
+                  <p>
+                    Transaksi Stock In dan Stock
+                    Out akan muncul di sini.
+                  </p>
+                </div>
+              ) : (
+                <div className="inventory-activity-list">
+                  {recentTransactions.map(
+                    (transaction) => {
+                      const isStockIn =
+                        transaction.type ===
+                        "StockIn";
+
+                      return (
+                        <article
+                          key={transaction.id}
+                          className="inventory-activity-item"
+                        >
+                          <div
+                            className={
+                              isStockIn
+                                ? "inventory-activity-icon inventory-activity-in"
+                                : "inventory-activity-icon inventory-activity-out"
+                            }
+                          >
+                            {isStockIn ? (
+                              <ArrowDownToLine
+                                size={17}
+                              />
+                            ) : (
+                              <ArrowUpFromLine
+                                size={17}
+                              />
+                            )}
+                          </div>
+
+                          <div className="inventory-activity-content">
+                            <div className="inventory-activity-title">
+                              <strong>
+                                {
+                                  transaction.productName
+                                }
+                              </strong>
+
+                              <span
+                                className={
+                                  isStockIn
+                                    ? "inventory-activity-quantity inventory-quantity-in"
+                                    : "inventory-activity-quantity inventory-quantity-out"
+                                }
+                              >
+                                {isStockIn
+                                  ? "+"
+                                  : "-"}
+                                {
+                                  transaction.quantity
+                                }{" "}
+                                {transaction.unit}
+                              </span>
+                            </div>
+
+                            <p>
+                              {
+                                transaction.warehouseCode
+                              }{" "}
+                              —{" "}
+                              {
+                                transaction.warehouseName
+                              }
+                            </p>
+
+                            <small>
+                              {formatTransactionDate(
+                                transaction.createdAtUtc
+                              )}
+                            </small>
+                          </div>
+                        </article>
+                      );
+                    }
+                  )}
+                </div>
+              )}
+            </section>
+          </div>
+        </>
       )}
     </section>
   );
