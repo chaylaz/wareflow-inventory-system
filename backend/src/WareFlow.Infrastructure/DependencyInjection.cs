@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using WareFlow.Application.Abstractions;
 using WareFlow.Infrastructure.Persistence;
 using WareFlow.Infrastructure.Persistence.Repositories;
+using WareFlow.Infrastructure.Security;
 
 namespace WareFlow.Infrastructure;
 
@@ -48,6 +49,16 @@ public static class DependencyInjection
         services.AddScoped<
             IStockTransactionRepository,
             StockTransactionRepository
+        >();
+
+        services.AddScoped<
+            IAppUserRepository,
+            AppUserRepository
+        >();
+
+        services.AddSingleton<
+            IPasswordHasher,
+            Pbkdf2PasswordHasher
         >();
 
         return services;

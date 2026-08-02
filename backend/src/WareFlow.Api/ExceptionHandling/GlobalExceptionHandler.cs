@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using WareFlow.Application.Authentication;
 using WareFlow.Application.Categories;
 using WareFlow.Application.Products;
 using WareFlow.Application.Stocks;
@@ -16,68 +17,81 @@ public sealed class GlobalExceptionHandler(
         Exception exception,
         CancellationToken cancellationToken)
     {
-        var (statusCode, title, detail) = exception switch
-        {
-            CategoryNotFoundException => (
-                StatusCodes.Status404NotFound,
-                "Category not found.",
-                exception.Message
-            ),
+        var (statusCode, title, detail) =
+            exception switch
+            {
+                InvalidCredentialsException => (
+                    StatusCodes.Status401Unauthorized,
+                    "Authentication failed.",
+                    exception.Message
+                ),
 
-            CategoryAlreadyExistsException => (
-                StatusCodes.Status409Conflict,
-                "Category already exists.",
-                exception.Message
-            ),
+                InitialSetupAlreadyCompletedException => (
+                    StatusCodes.Status409Conflict,
+                    "Initial setup already completed.",
+                    exception.Message
+                ),
 
-            WarehouseNotFoundException => (
-                StatusCodes.Status404NotFound,
-                "Warehouse not found.",
-                exception.Message
-            ),
+                CategoryNotFoundException => (
+                    StatusCodes.Status404NotFound,
+                    "Category not found.",
+                    exception.Message
+                ),
 
-            WarehouseAlreadyExistsException => (
-                StatusCodes.Status409Conflict,
-                "Warehouse already exists.",
-                exception.Message
-            ),
+                CategoryAlreadyExistsException => (
+                    StatusCodes.Status409Conflict,
+                    "Category already exists.",
+                    exception.Message
+                ),
 
-            ProductNotFoundException => (
-                StatusCodes.Status404NotFound,
-                "Product not found.",
-                exception.Message
-            ),
+                WarehouseNotFoundException => (
+                    StatusCodes.Status404NotFound,
+                    "Warehouse not found.",
+                    exception.Message
+                ),
 
-            ProductAlreadyExistsException => (
-                StatusCodes.Status409Conflict,
-                "Product already exists.",
-                exception.Message
-            ),
+                WarehouseAlreadyExistsException => (
+                    StatusCodes.Status409Conflict,
+                    "Warehouse already exists.",
+                    exception.Message
+                ),
 
-            InventoryStockNotFoundException => (
-                StatusCodes.Status404NotFound,
-                "Inventory stock not found.",
-                exception.Message
-            ),
+                ProductNotFoundException => (
+                    StatusCodes.Status404NotFound,
+                    "Product not found.",
+                    exception.Message
+                ),
 
-            InsufficientStockException => (
-                StatusCodes.Status409Conflict,
-                "Insufficient stock.",
-                exception.Message
-            ),
+                ProductAlreadyExistsException => (
+                    StatusCodes.Status409Conflict,
+                    "Product already exists.",
+                    exception.Message
+                ),
 
-            ArgumentException => (
-                StatusCodes.Status400BadRequest,
-                "Invalid request.",
-                exception.Message
-            ),
+                InventoryStockNotFoundException => (
+                    StatusCodes.Status404NotFound,
+                    "Inventory stock not found.",
+                    exception.Message
+                ),
 
-            _ => (
-                StatusCodes.Status500InternalServerError,
-                "Internal server error.",
-                "An unexpected error occurred while processing the request."
-            )
-        };
+                InsufficientStockException => (
+                    StatusCodes.Status409Conflict,
+                    "Insufficient stock.",
+                    exception.Message
+                ),
+
+                ArgumentException => (
+                    StatusCodes.Status400BadRequest,
+                    "Invalid request.",
+                    exception.Message
+                ),
+
+                _ => (
+                    StatusCodes.Status500InternalServerError,
+                    "Internal server error.",
+                    "An unexpected error occurred while processing the request."
+                )
+            };
 
         LogException(
             exception,
@@ -97,7 +111,9 @@ public sealed class GlobalExceptionHandler(
         problemDetails.Extensions["traceId"] =
             httpContext.TraceIdentifier;
 
-        httpContext.Response.StatusCode = statusCode;
+        httpContext.Response.StatusCode =
+            statusCode;
+
         httpContext.Response.ContentType =
             "application/problem+json";
 
@@ -115,8 +131,10 @@ public sealed class GlobalExceptionHandler(
         string method,
         PathString path)
     {
-        if (statusCode >=
-            StatusCodes.Status500InternalServerError)
+        if (
+            statusCode >=
+            StatusCodes.Status500InternalServerError
+        )
         {
             logger.LogError(
                 exception,
