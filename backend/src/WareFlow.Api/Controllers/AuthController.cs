@@ -37,10 +37,11 @@ public sealed class AuthController(
             );
 
         var user =
-            await authService.SetupInitialAdminAsync(
-                command,
-                cancellationToken
-            );
+            await authService
+                .SetupInitialAdminAsync(
+                    command,
+                    cancellationToken
+                );
 
         return StatusCode(
             StatusCodes.Status201Created,
@@ -68,39 +69,11 @@ public sealed class AuthController(
             Password: request.Password
         );
 
-        var user = await authService.LoginAsync(
-            command,
-            cancellationToken
-        );
-
-        var claims = new List<Claim>
-        {
-            new(
-                ClaimTypes.NameIdentifier,
-                user.Id.ToString()
-            ),
-            new(
-                ClaimTypes.Name,
-                user.FullName
-            ),
-            new(
-                ClaimTypes.Email,
-                user.Email
-            ),
-            new(
-                ClaimTypes.Role,
-                user.Role
-            )
-        };
-
-        var identity = new ClaimsIdentity(
-            claims,
-            CookieAuthenticationDefaults
-                .AuthenticationScheme
-        );
-
-        var principal =
-            new ClaimsPrincipal(identity);
+        var user =
+            await authService.LoginAsync(
+                command,
+                cancellationToken
+            );
 
         var authenticationProperties =
             new AuthenticationProperties
@@ -117,10 +90,8 @@ public sealed class AuthController(
                         : null
             };
 
-        await HttpContext.SignInAsync(
-            CookieAuthenticationDefaults
-                .AuthenticationScheme,
-            principal,
+        await SignInUserAsync(
+            user,
             authenticationProperties
         );
 
@@ -139,10 +110,141 @@ public sealed class AuthController(
         AuthenticatedUserResponse
     > GetCurrentUser()
     {
+        var currentUser =
+            GetCurrentUserFromClaims();
+
+        return currentUser is null
+            ? Unauthorized()
+            : Ok(currentUser);
+    }
+
+    [HttpPut("profile")]
+    [ProducesResponseType(
+        typeof(AuthenticatedUserResponse),
+        StatusCodes.Status200OK
+    )]
+    [ProducesResponseType(
+        StatusCodes.Status401Unauthorized
+    )]
+    public async Task<ActionResult<
+        AuthenticatedUserResponse
+    >> UpdateProfile(
+        UpdateProfileRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var command =
+            new UpdateProfileCommand(
+                FullName: request.FullName
+            );
+
+        var updatedUser =
+            await authService.UpdateProfileAsync(
+                userId.Value,
+                command,
+                cancellationToken
+            );
+
+        var authenticationResult =
+            await HttpContext.AuthenticateAsync(
+                CookieAuthenticationDefaults
+                    .AuthenticationScheme
+            );
+
+        var authenticationProperties =
+            authenticationResult.Properties ??
+            new AuthenticationProperties
+            {
+                AllowRefresh = true
+            };
+
+        await SignInUserAsync(
+            updatedUser,
+            authenticationProperties
+        );
+
+        return Ok(updatedUser);
+    }
+
+    [HttpPost("change-password")]
+    [ProducesResponseType(
+        StatusCodes.Status204NoContent
+    )]
+    [ProducesResponseType(
+        StatusCodes.Status400BadRequest
+    )]
+    [ProducesResponseType(
+        StatusCodes.Status401Unauthorized
+    )]
+    public async Task<IActionResult>
+        ChangePassword(
+            ChangePasswordRequest request,
+            CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var command =
+            new ChangePasswordCommand(
+                CurrentPassword:
+                    request.CurrentPassword,
+
+                NewPassword:
+                    request.NewPassword
+            );
+
+        await authService.ChangePasswordAsync(
+            userId.Value,
+            command,
+            cancellationToken
+        );
+
+        return NoContent();
+    }
+
+    [HttpPost("logout")]
+    [ProducesResponseType(
+        StatusCodes.Status204NoContent
+    )]
+    public async Task<IActionResult> Logout()
+    {
+        await HttpContext.SignOutAsync(
+            CookieAuthenticationDefaults
+                .AuthenticationScheme
+        );
+
+        return NoContent();
+    }
+
+    private Guid? GetCurrentUserId()
+    {
         var idValue =
             User.FindFirst(
                 ClaimTypes.NameIdentifier
             )?.Value;
+
+        return Guid.TryParse(
+            idValue,
+            out var userId
+        )
+            ? userId
+            : null;
+    }
+
+    private AuthenticatedUserResponse?
+        GetCurrentUserFromClaims()
+    {
+        var userId = GetCurrentUserId();
 
         var fullName =
             User.FindFirst(
@@ -160,36 +262,71 @@ public sealed class AuthController(
             )?.Value;
 
         if (
-            !Guid.TryParse(idValue, out var userId) ||
-            string.IsNullOrWhiteSpace(fullName) ||
-            string.IsNullOrWhiteSpace(email) ||
-            string.IsNullOrWhiteSpace(role)
+            userId is null ||
+            string.IsNullOrWhiteSpace(
+                fullName
+            ) ||
+            string.IsNullOrWhiteSpace(
+                email
+            ) ||
+            string.IsNullOrWhiteSpace(
+                role
+            )
         )
         {
-            return Unauthorized();
+            return null;
         }
 
-        return Ok(
-            new AuthenticatedUserResponse(
-                Id: userId,
-                FullName: fullName,
-                Email: email,
-                Role: role
-            )
+        return new AuthenticatedUserResponse(
+            Id: userId.Value,
+            FullName: fullName,
+            Email: email,
+            Role: role
         );
     }
 
-    [HttpPost("logout")]
-    [ProducesResponseType(
-        StatusCodes.Status204NoContent
-    )]
-    public async Task<IActionResult> Logout()
+    private async Task SignInUserAsync(
+        AuthenticatedUserResponse user,
+        AuthenticationProperties
+            authenticationProperties)
     {
-        await HttpContext.SignOutAsync(
+        var claims = new List<Claim>
+        {
+            new(
+                ClaimTypes.NameIdentifier,
+                user.Id.ToString()
+            ),
+
+            new(
+                ClaimTypes.Name,
+                user.FullName
+            ),
+
+            new(
+                ClaimTypes.Email,
+                user.Email
+            ),
+
+            new(
+                ClaimTypes.Role,
+                user.Role
+            )
+        };
+
+        var identity = new ClaimsIdentity(
+            claims,
             CookieAuthenticationDefaults
                 .AuthenticationScheme
         );
 
-        return NoContent();
+        var principal =
+            new ClaimsPrincipal(identity);
+
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults
+                .AuthenticationScheme,
+            principal,
+            authenticationProperties
+        );
     }
 }

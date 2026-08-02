@@ -16,6 +16,16 @@ public sealed class AppUserRepository(
         );
     }
 
+    public Task<AppUser?> GetByIdForUpdateAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return dbContext.Users.FirstOrDefaultAsync(
+            user => user.Id == id,
+            cancellationToken
+        );
+    }
+
     public Task<AppUser?> GetByEmailForUpdateAsync(
         string email,
         CancellationToken cancellationToken = default)

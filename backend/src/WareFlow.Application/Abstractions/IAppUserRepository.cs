@@ -8,6 +8,11 @@ public interface IAppUserRepository
         CancellationToken cancellationToken = default
     );
 
+    Task<AppUser?> GetByIdForUpdateAsync(
+        Guid id,
+        CancellationToken cancellationToken = default
+    );
+
     Task<AppUser?> GetByEmailForUpdateAsync(
         string email,
         CancellationToken cancellationToken = default

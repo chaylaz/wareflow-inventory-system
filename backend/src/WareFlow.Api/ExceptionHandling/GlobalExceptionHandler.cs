@@ -32,6 +32,18 @@ public sealed class GlobalExceptionHandler(
                     exception.Message
                 ),
 
+                AuthenticatedUserNotFoundException => (
+                    StatusCodes.Status404NotFound,
+                    "User not found.",
+                    exception.Message
+                ),
+
+                CurrentPasswordIncorrectException => (
+                    StatusCodes.Status400BadRequest,
+                    "Current password incorrect.",
+                    exception.Message
+                ),
+
                 CategoryNotFoundException => (
                     StatusCodes.Status404NotFound,
                     "Category not found.",
