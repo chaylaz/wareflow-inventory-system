@@ -17,12 +17,15 @@ import {
 } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { getStoredAuthNotice } from "../lib/authEvents";
 import { getApiErrorMessage } from "../lib/getApiErrorMessage";
 
 type LoginLocationState = {
   from?: {
     pathname?: string;
   };
+
+  authNotice?: string | null;
 };
 
 function LoginPage() {
@@ -30,6 +33,8 @@ function LoginPage() {
     login,
     isAuthenticated,
     isLoading,
+    authNotice,
+    clearAuthNotice,
   } = useAuth();
 
   const navigate = useNavigate();
@@ -58,6 +63,11 @@ function LoginPage() {
     locationState?.from?.pathname ??
     "/dashboard";
 
+  const sessionNotice =
+    authNotice ??
+    locationState?.authNotice ??
+    getStoredAuthNotice();
+
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
@@ -70,6 +80,7 @@ function LoginPage() {
       setErrorMessage(
         "Email wajib diisi."
       );
+
       return;
     }
 
@@ -77,12 +88,14 @@ function LoginPage() {
       setErrorMessage(
         "Password wajib diisi."
       );
+
       return;
     }
 
     try {
       setIsSubmitting(true);
       setErrorMessage("");
+      clearAuthNotice();
 
       await login({
         email: normalizedEmail,
@@ -199,6 +212,12 @@ function LoginPage() {
               mengakses sistem inventory.
             </p>
           </div>
+
+          {sessionNotice && (
+            <div className="login-session-message">
+              {sessionNotice}
+            </div>
+          )}
 
           <form
             className="login-form"

@@ -10,6 +10,13 @@ import {
   type ReactNode,
 } from "react";
 
+import {
+  AUTH_SESSION_EXPIRED_EVENT,
+  AUTH_SESSION_EXPIRED_MESSAGE,
+  clearStoredAuthNotice,
+  getStoredAuthNotice,
+} from "../lib/authEvents";
+
 import { api } from "../lib/api";
 
 import type {
@@ -21,6 +28,7 @@ type AuthContextValue = {
   user: AuthenticatedUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  authNotice: string | null;
 
   login: (
     request: LoginRequest
@@ -29,10 +37,14 @@ type AuthContextValue = {
   logout: () => Promise<void>;
 
   refreshUser: () => Promise<void>;
+
+  clearAuthNotice: () => void;
 };
 
 const AuthContext =
-  createContext<AuthContextValue | null>(null);
+  createContext<AuthContextValue | null>(
+    null
+  );
 
 type AuthProviderProps = {
   children: ReactNode;
@@ -46,6 +58,17 @@ export function AuthProvider({
 
   const [isLoading, setIsLoading] =
     useState(true);
+
+  const [authNotice, setAuthNotice] =
+    useState<string | null>(() =>
+      getStoredAuthNotice()
+    );
+
+  const clearAuthNotice =
+    useCallback(() => {
+      setAuthNotice(null);
+      clearStoredAuthNotice();
+    }, []);
 
   const refreshUser =
     useCallback(async () => {
@@ -68,6 +91,35 @@ export function AuthProvider({
         throw error;
       }
     }, []);
+
+  useEffect(() => {
+    function handleSessionExpired(
+      event: Event
+    ) {
+      const customEvent =
+        event as CustomEvent<string>;
+
+      const notice =
+        customEvent.detail ||
+        getStoredAuthNotice() ||
+        AUTH_SESSION_EXPIRED_MESSAGE;
+
+      setAuthNotice(notice);
+      setUser(null);
+    }
+
+    window.addEventListener(
+      AUTH_SESSION_EXPIRED_EVENT,
+      handleSessionExpired
+    );
+
+    return () => {
+      window.removeEventListener(
+        AUTH_SESSION_EXPIRED_EVENT,
+        handleSessionExpired
+      );
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -109,6 +161,8 @@ export function AuthProvider({
         );
 
       setUser(response.data);
+      setAuthNotice(null);
+      clearStoredAuthNotice();
 
       return response.data;
     },
@@ -120,6 +174,8 @@ export function AuthProvider({
       await api.post("/api/auth/logout");
     } finally {
       setUser(null);
+      setAuthNotice(null);
+      clearStoredAuthNotice();
     }
   }, []);
 
@@ -128,21 +184,27 @@ export function AuthProvider({
       user,
       isLoading,
       isAuthenticated: user !== null,
+      authNotice,
       login,
       logout,
       refreshUser,
+      clearAuthNotice,
     }),
     [
       user,
       isLoading,
+      authNotice,
       login,
       logout,
       refreshUser,
+      clearAuthNotice,
     ]
   );
 
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext.Provider
+      value={contextValue}
+    >
       {children}
     </AuthContext.Provider>
   );
