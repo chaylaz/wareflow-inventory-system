@@ -4,15 +4,21 @@ import {
   Boxes,
   History,
   LayoutDashboard,
+  LogOut,
   Package,
   Tags,
   Warehouse,
 } from "lucide-react";
 
+import { useState } from "react";
+
 import {
   NavLink,
   Outlet,
+  useNavigate,
 } from "react-router-dom";
+
+import { useAuth } from "../context/AuthContext";
 
 const navigationItems = [
   {
@@ -48,6 +54,45 @@ const navigationItems = [
 ];
 
 function AppLayout() {
+  const {
+    user,
+    logout,
+  } = useAuth();
+
+  const navigate = useNavigate();
+
+  const [isLoggingOut, setIsLoggingOut] =
+    useState(false);
+
+  const userInitial =
+    user?.fullName
+      .trim()
+      .charAt(0)
+      .toUpperCase() || "A";
+
+  async function handleLogout() {
+    try {
+      setIsLoggingOut(true);
+
+      await logout();
+
+      navigate("/login", {
+        replace: true,
+      });
+    } catch (error) {
+      console.error(
+        "Failed to log out:",
+        error
+      );
+
+      navigate("/login", {
+        replace: true,
+      });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -129,12 +174,46 @@ function AppLayout() {
               <span>API terhubung</span>
             </div>
 
-            <div
-              className="user-avatar"
-              title="Administrator"
-            >
-              A
+            <div className="current-user">
+              <div
+                className="user-avatar"
+                title={user?.fullName}
+              >
+                {userInitial}
+              </div>
+
+              <div className="current-user-details">
+                <strong>
+                  {user?.fullName ??
+                    "Administrator"}
+                </strong>
+
+                <span>
+                  {user?.role ??
+                    "Administrator"}
+                </span>
+              </div>
             </div>
+
+            <button
+              className="logout-button"
+              type="button"
+              disabled={isLoggingOut}
+              onClick={() =>
+                void handleLogout()
+              }
+            >
+              <LogOut
+                size={16}
+                strokeWidth={2}
+              />
+
+              <span>
+                {isLoggingOut
+                  ? "Keluar..."
+                  : "Logout"}
+              </span>
+            </button>
           </div>
         </header>
 
