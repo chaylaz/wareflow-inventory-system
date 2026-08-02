@@ -12,4 +12,17 @@ public interface IAuthService
         LoginCommand command,
         CancellationToken cancellationToken = default
     );
+
+    Task<AuthenticatedUserResponse>
+        UpdateProfileAsync(
+            Guid userId,
+            UpdateProfileCommand command,
+            CancellationToken cancellationToken = default
+        );
+
+    Task ChangePasswordAsync(
+        Guid userId,
+        ChangePasswordCommand command,
+        CancellationToken cancellationToken = default
+    );
 }

@@ -5,13 +5,13 @@ import {
 } from "react-router-dom";
 
 import ProtectedRoute from "./components/ProtectedRoute";
-
 import AppLayout from "./layouts/AppLayout";
 
 import CategoriesPage from "./pages/CategoriesPage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import ProductsPage from "./pages/ProductsPage";
+import ProfilePage from "./pages/ProfilePage";
 import StockHistoryPage from "./pages/StockHistoryPage";
 import StocksPage from "./pages/StocksPage";
 import WarehousesPage from "./pages/WarehousesPage";
@@ -69,6 +69,11 @@ function App() {
           <Route
             path="/stock-history"
             element={<StockHistoryPage />}
+          />
+
+          <Route
+            path="/profile"
+            element={<ProfilePage />}
           />
         </Route>
       </Route>

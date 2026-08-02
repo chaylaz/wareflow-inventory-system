@@ -7,6 +7,7 @@ import {
   LogOut,
   Package,
   Tags,
+  UserRound,
   Warehouse,
 } from "lucide-react";
 
@@ -50,6 +51,11 @@ const navigationItems = [
     path: "/stock-history",
     label: "Stock History",
     icon: History,
+  },
+  {
+    path: "/profile",
+    label: "Profile",
+    icon: UserRound,
   },
 ];
 

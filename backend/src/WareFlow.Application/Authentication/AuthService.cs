@@ -24,7 +24,9 @@ public sealed class AuthService(
         }
 
         var passwordHash =
-            passwordHasher.Hash(command.Password);
+            passwordHasher.Hash(
+                command.Password
+            );
 
         var administrator = new AppUser(
             fullName: command.FullName,
@@ -42,7 +44,9 @@ public sealed class AuthService(
             cancellationToken
         );
 
-        return MapToResponse(administrator);
+        return MapToResponse(
+            administrator
+        );
     }
 
     public async Task<AuthenticatedUserResponse>
@@ -51,8 +55,12 @@ public sealed class AuthService(
             CancellationToken cancellationToken = default)
     {
         if (
-            string.IsNullOrWhiteSpace(command.Email) ||
-            string.IsNullOrWhiteSpace(command.Password)
+            string.IsNullOrWhiteSpace(
+                command.Email
+            ) ||
+            string.IsNullOrWhiteSpace(
+                command.Password
+            )
         )
         {
             throw new InvalidCredentialsException();
@@ -84,6 +92,104 @@ public sealed class AuthService(
         );
 
         return MapToResponse(user);
+    }
+
+    public async Task<AuthenticatedUserResponse>
+        UpdateProfileAsync(
+            Guid userId,
+            UpdateProfileCommand command,
+            CancellationToken cancellationToken = default)
+    {
+        var user =
+            await GetActiveUserForUpdateAsync(
+                userId,
+                cancellationToken
+            );
+
+        user.UpdateFullName(
+            command.FullName
+        );
+
+        await appUserRepository.SaveChangesAsync(
+            cancellationToken
+        );
+
+        return MapToResponse(user);
+    }
+
+    public async Task ChangePasswordAsync(
+        Guid userId,
+        ChangePasswordCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        var user =
+            await GetActiveUserForUpdateAsync(
+                userId,
+                cancellationToken
+            );
+
+        var currentPasswordIsValid =
+            passwordHasher.Verify(
+                command.CurrentPassword,
+                user.PasswordHash
+            );
+
+        if (!currentPasswordIsValid)
+        {
+            throw new CurrentPasswordIncorrectException();
+        }
+
+        var newPasswordMatchesCurrentPassword =
+            passwordHasher.Verify(
+                command.NewPassword,
+                user.PasswordHash
+            );
+
+        if (newPasswordMatchesCurrentPassword)
+        {
+            throw new ArgumentException(
+                "New password must be different from the current password.",
+                nameof(command.NewPassword)
+            );
+        }
+
+        var newPasswordHash =
+            passwordHasher.Hash(
+                command.NewPassword
+            );
+
+        user.ChangePasswordHash(
+            newPasswordHash
+        );
+
+        await appUserRepository.SaveChangesAsync(
+            cancellationToken
+        );
+    }
+
+    private async Task<AppUser>
+        GetActiveUserForUpdateAsync(
+            Guid userId,
+            CancellationToken cancellationToken)
+    {
+        var user =
+            await appUserRepository
+                .GetByIdForUpdateAsync(
+                    userId,
+                    cancellationToken
+                );
+
+        if (
+            user is null ||
+            !user.IsActive
+        )
+        {
+            throw new AuthenticatedUserNotFoundException(
+                userId
+            );
+        }
+
+        return user;
     }
 
     private static AuthenticatedUserResponse
