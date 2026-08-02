@@ -11,6 +11,11 @@ public interface IInventoryStockService
         CancellationToken cancellationToken = default
     );
 
+    Task<IReadOnlyList<StockTransactionResponse>>
+        GetHistoryAsync(
+            CancellationToken cancellationToken = default
+        );
+
     Task<StockResponse> StockInAsync(
         StockInCommand command,
         CancellationToken cancellationToken = default

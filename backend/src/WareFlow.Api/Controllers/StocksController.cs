@@ -27,6 +27,24 @@ public sealed class StocksController(
         return Ok(inventoryStocks);
     }
 
+    [HttpGet("history")]
+    [ProducesResponseType(
+        typeof(IReadOnlyList<StockTransactionResponse>),
+        StatusCodes.Status200OK
+    )]
+    public async Task<ActionResult<
+        IReadOnlyList<StockTransactionResponse>
+    >> GetHistory(
+        CancellationToken cancellationToken)
+    {
+        var transactions =
+            await inventoryStockService.GetHistoryAsync(
+                cancellationToken
+            );
+
+        return Ok(transactions);
+    }
+
     [HttpGet("{id:guid}")]
     [ProducesResponseType(
         typeof(StockResponse),
