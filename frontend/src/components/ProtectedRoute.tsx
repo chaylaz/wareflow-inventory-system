@@ -5,11 +5,13 @@ import {
 } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { getStoredAuthNotice } from "../lib/authEvents";
 
 function ProtectedRoute() {
   const {
     isAuthenticated,
     isLoading,
+    authNotice,
   } = useAuth();
 
   const location = useLocation();
@@ -25,12 +27,17 @@ function ProtectedRoute() {
   }
 
   if (!isAuthenticated) {
+    const sessionNotice =
+      authNotice ??
+      getStoredAuthNotice();
+
     return (
       <Navigate
         to="/login"
         replace
         state={{
           from: location,
+          authNotice: sessionNotice,
         }}
       />
     );
