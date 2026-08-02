@@ -1,4 +1,7 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using WareFlow.Api.ExceptionHandling;
+using WareFlow.Application.Authentication;
 using WareFlow.Application.Categories;
 using WareFlow.Application.Products;
 using WareFlow.Application.Stocks;
@@ -17,15 +20,71 @@ builder.Services.AddExceptionHandler<
     GlobalExceptionHandler
 >();
 
+builder.Services
+    .AddAuthentication(
+        CookieAuthenticationDefaults
+            .AuthenticationScheme
+    )
+    .AddCookie(options =>
+    {
+        options.Cookie.Name =
+            "wareflow.auth";
+
+        options.Cookie.HttpOnly = true;
+
+        options.Cookie.SameSite =
+            SameSiteMode.Lax;
+
+        options.Cookie.SecurePolicy =
+            CookieSecurePolicy.SameAsRequest;
+
+        options.ExpireTimeSpan =
+            TimeSpan.FromHours(8);
+
+        options.SlidingExpiration = true;
+
+        options.Events.OnRedirectToLogin =
+            context =>
+            {
+                context.Response.StatusCode =
+                    StatusCodes.Status401Unauthorized;
+
+                return Task.CompletedTask;
+            };
+
+        options.Events.OnRedirectToAccessDenied =
+            context =>
+            {
+                context.Response.StatusCode =
+                    StatusCodes.Status403Forbidden;
+
+                return Task.CompletedTask;
+            };
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy =
+        new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build();
+});
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(frontendCorsPolicy, policy =>
-    {
-        policy
-            .WithOrigins("http://localhost:5173")
-            .AllowAnyHeader()
-            .AllowAnyMethod();
-    });
+    options.AddPolicy(
+        frontendCorsPolicy,
+        policy =>
+        {
+            policy
+                .WithOrigins(
+                    "http://localhost:5173"
+                )
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        }
+    );
 });
 
 var connectionString =
@@ -60,6 +119,11 @@ builder.Services.AddScoped<
     InventoryStockService
 >();
 
+builder.Services.AddScoped<
+    IAuthService,
+    AuthService
+>();
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -71,6 +135,7 @@ app.UseExceptionHandler();
 
 app.UseCors(frontendCorsPolicy);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

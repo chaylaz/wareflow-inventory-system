@@ -22,6 +22,9 @@ public sealed class WareFlowDbContext(
     public DbSet<StockTransaction> StockTransactions =>
         Set<StockTransaction>();
 
+    public DbSet<AppUser> Users =>
+        Set<AppUser>();
+
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)
     {
