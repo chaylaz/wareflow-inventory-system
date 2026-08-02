@@ -1,5 +1,6 @@
 import {
   Activity,
+  Archive,
   Boxes,
   LayoutDashboard,
   Package,
@@ -7,7 +8,10 @@ import {
   Warehouse,
 } from "lucide-react";
 
-import { NavLink, Outlet } from "react-router-dom";
+import {
+  NavLink,
+  Outlet,
+} from "react-router-dom";
 
 const navigationItems = [
   {
@@ -30,6 +34,11 @@ const navigationItems = [
     label: "Products",
     icon: Package,
   },
+  {
+    path: "/stocks",
+    label: "Stocks",
+    icon: Archive,
+  },
 ];
 
 function AppLayout() {
@@ -38,7 +47,10 @@ function AppLayout() {
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">
-            <Boxes size={23} strokeWidth={2.2} />
+            <Boxes
+              size={23}
+              strokeWidth={2.2}
+            />
           </div>
 
           <div>
@@ -71,7 +83,10 @@ function AppLayout() {
                 }
               >
                 <span className="navigation-symbol">
-                  <Icon size={17} strokeWidth={2} />
+                  <Icon
+                    size={17}
+                    strokeWidth={2}
+                  />
                 </span>
 
                 <span>{item.label}</span>

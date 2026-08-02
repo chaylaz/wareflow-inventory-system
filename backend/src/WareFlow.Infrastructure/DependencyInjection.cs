@@ -40,6 +40,11 @@ public static class DependencyInjection
             ProductRepository
         >();
 
+        services.AddScoped<
+            IInventoryStockRepository,
+            InventoryStockRepository
+        >();
+
         return services;
     }
 }

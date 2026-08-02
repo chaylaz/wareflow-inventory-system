@@ -1,0 +1,172 @@
+.stock-page-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.stock-out-button {
+    border-color: #fecaca;
+    background: #fff;
+    color: #dc2626;
+}
+
+.stock-out-button:hover:not(:disabled) {
+    border-color: #fca5a5;
+    background: #fef2f2;
+}
+
+.stock-overview-grid {
+    display: grid;
+    grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 22px;
+}
+
+.stock-overview-card {
+    padding: 19px;
+    border: 1px solid #e2e8f0;
+    border-radius: 15px;
+    background: #ffffff;
+    box-shadow:
+        0 10px 28px rgb(15 23 42 / 5%);
+}
+
+.stock-overview-card span {
+    display: block;
+    margin-bottom: 9px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.stock-overview-card strong {
+    display: block;
+    margin-bottom: 7px;
+    color: #0f172a;
+    font-size: 29px;
+    line-height: 1;
+}
+
+.stock-overview-card small {
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+.stock-overview-warning {
+    border-color: #fde68a;
+    background: #fffbeb;
+}
+
+.stock-overview-danger {
+    border-color: #fecaca;
+    background: #fff7f7;
+}
+
+.stock-reference-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.stock-reference-cell strong {
+    color: #0f172a;
+    font-size: 14px;
+}
+
+.warehouse-code {
+    color: #2563eb;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.stock-quantity-cell {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+}
+
+.stock-quantity-cell strong {
+    color: #0f172a;
+    font-size: 18px;
+}
+
+.stock-quantity-cell span {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.stock-status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 92px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.stock-status-available {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.stock-status-low {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.stock-status-out {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.stock-balance-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 15px;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    background: #eff6ff;
+}
+
+.stock-balance-preview span {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.stock-balance-preview strong {
+    color: #1d4ed8;
+    font-size: 20px;
+}
+
+.stock-balance-preview small {
+    color: #64748b;
+    font-size: 12px;
+}
+
+@media (max-width: 1050px) {
+    .stock-overview-grid {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 680px) {
+    .stock-page-actions {
+        width: 100%;
+    }
+
+    .stock-page-actions button {
+        flex: 1;
+    }
+
+    .stock-overview-grid {
+        grid-template-columns: 1fr;
+    }
+}
