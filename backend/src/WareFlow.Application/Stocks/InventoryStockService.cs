@@ -7,6 +7,7 @@ namespace WareFlow.Application.Stocks;
 
 public sealed class InventoryStockService(
     IInventoryStockRepository inventoryStockRepository,
+    IStockTransactionRepository stockTransactionRepository,
     IProductRepository productRepository,
     IWarehouseRepository warehouseRepository
 ) : IInventoryStockService
@@ -38,6 +39,20 @@ public sealed class InventoryStockService(
         return inventoryStock is null
             ? null
             : MapToResponse(inventoryStock);
+    }
+
+    public async Task<IReadOnlyList<StockTransactionResponse>>
+        GetHistoryAsync(
+            CancellationToken cancellationToken = default)
+    {
+        var transactions =
+            await stockTransactionRepository.GetAllAsync(
+                cancellationToken
+            );
+
+        return transactions
+            .Select(MapTransactionToResponse)
+            .ToList();
     }
 
     public async Task<StockResponse> StockInAsync(
@@ -78,6 +93,20 @@ public sealed class InventoryStockService(
         {
             inventoryStock.Increase(command.Quantity);
         }
+
+        var transaction = new StockTransaction(
+            inventoryStockId: inventoryStock.Id,
+            productId: product.Id,
+            warehouseId: warehouse.Id,
+            type: StockTransactionType.In,
+            quantity: command.Quantity,
+            balanceAfter: inventoryStock.Quantity
+        );
+
+        await stockTransactionRepository.AddAsync(
+            transaction,
+            cancellationToken
+        );
 
         await inventoryStockRepository.SaveChangesAsync(
             cancellationToken
@@ -128,6 +157,20 @@ public sealed class InventoryStockService(
         }
 
         inventoryStock.Decrease(command.Quantity);
+
+        var transaction = new StockTransaction(
+            inventoryStockId: inventoryStock.Id,
+            productId: product.Id,
+            warehouseId: warehouse.Id,
+            type: StockTransactionType.Out,
+            quantity: command.Quantity,
+            balanceAfter: inventoryStock.Quantity
+        );
+
+        await stockTransactionRepository.AddAsync(
+            transaction,
+            cancellationToken
+        );
 
         await inventoryStockRepository.SaveChangesAsync(
             cancellationToken
@@ -241,6 +284,35 @@ public sealed class InventoryStockService(
             StockStatus: stockStatus,
             CreatedAtUtc: inventoryStock.CreatedAtUtc,
             UpdatedAtUtc: inventoryStock.UpdatedAtUtc
+        );
+    }
+
+    private static StockTransactionResponse
+        MapTransactionToResponse(
+            StockTransaction transaction)
+    {
+        var transactionType =
+            transaction.Type == StockTransactionType.In
+                ? "StockIn"
+                : "StockOut";
+
+        return new StockTransactionResponse(
+            Id: transaction.Id,
+            InventoryStockId:
+                transaction.InventoryStockId,
+            Type: transactionType,
+            ProductId: transaction.ProductId,
+            ProductSku: transaction.Product.Sku,
+            ProductName: transaction.Product.Name,
+            Unit: transaction.Product.Unit,
+            WarehouseId: transaction.WarehouseId,
+            WarehouseCode:
+                transaction.Warehouse.Code,
+            WarehouseName:
+                transaction.Warehouse.Name,
+            Quantity: transaction.Quantity,
+            BalanceAfter: transaction.BalanceAfter,
+            CreatedAtUtc: transaction.CreatedAtUtc
         );
     }
 }

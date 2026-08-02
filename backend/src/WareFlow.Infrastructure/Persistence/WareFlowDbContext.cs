@@ -19,6 +19,9 @@ public sealed class WareFlowDbContext(
     public DbSet<InventoryStock> InventoryStocks =>
         Set<InventoryStock>();
 
+    public DbSet<StockTransaction> StockTransactions =>
+        Set<StockTransaction>();
+
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)
     {
