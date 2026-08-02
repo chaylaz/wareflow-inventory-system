@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using WareFlow.Application.Categories;
 using WareFlow.Application.Products;
+using WareFlow.Application.Stocks;
 using WareFlow.Application.Warehouses;
 
 namespace WareFlow.Api.ExceptionHandling;
@@ -50,6 +51,18 @@ public sealed class GlobalExceptionHandler(
             ProductAlreadyExistsException => (
                 StatusCodes.Status409Conflict,
                 "Product already exists.",
+                exception.Message
+            ),
+
+            InventoryStockNotFoundException => (
+                StatusCodes.Status404NotFound,
+                "Inventory stock not found.",
+                exception.Message
+            ),
+
+            InsufficientStockException => (
+                StatusCodes.Status409Conflict,
+                "Insufficient stock.",
                 exception.Message
             ),
 
@@ -102,7 +115,8 @@ public sealed class GlobalExceptionHandler(
         string method,
         PathString path)
     {
-        if (statusCode >= StatusCodes.Status500InternalServerError)
+        if (statusCode >=
+            StatusCodes.Status500InternalServerError)
         {
             logger.LogError(
                 exception,

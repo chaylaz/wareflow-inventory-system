@@ -1,6 +1,7 @@
 using WareFlow.Api.ExceptionHandling;
 using WareFlow.Application.Categories;
 using WareFlow.Application.Products;
+using WareFlow.Application.Stocks;
 using WareFlow.Application.Warehouses;
 using WareFlow.Infrastructure;
 
@@ -12,7 +13,9 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 
-builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddExceptionHandler<
+    GlobalExceptionHandler
+>();
 
 builder.Services.AddCors(options =>
 {
@@ -33,7 +36,9 @@ var connectionString =
         "Connection string 'DefaultConnection' was not found."
     );
 
-builder.Services.AddInfrastructure(connectionString);
+builder.Services.AddInfrastructure(
+    connectionString
+);
 
 builder.Services.AddScoped<
     ICategoryService,
@@ -48,6 +53,11 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     IProductService,
     ProductService
+>();
+
+builder.Services.AddScoped<
+    IInventoryStockService,
+    InventoryStockService
 >();
 
 var app = builder.Build();
