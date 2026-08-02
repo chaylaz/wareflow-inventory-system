@@ -51,3 +51,23 @@ export type InventoryStock = {
   createdAtUtc: string;
   updatedAtUtc: string | null;
 };
+
+export type StockTransactionType =
+  | "StockIn"
+  | "StockOut";
+
+export type StockTransaction = {
+  id: string;
+  inventoryStockId: string;
+  type: StockTransactionType;
+  productId: string;
+  productSku: string;
+  productName: string;
+  unit: string;
+  warehouseId: string;
+  warehouseCode: string;
+  warehouseName: string;
+  quantity: number;
+  balanceAfter: number;
+  createdAtUtc: string;
+};

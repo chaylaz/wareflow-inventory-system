@@ -2,6 +2,7 @@ import {
   Activity,
   Archive,
   Boxes,
+  History,
   LayoutDashboard,
   Package,
   Tags,
@@ -38,6 +39,11 @@ const navigationItems = [
     path: "/stocks",
     label: "Stocks",
     icon: Archive,
+  },
+  {
+    path: "/stock-history",
+    label: "Stock History",
+    icon: History,
   },
 ];
 
