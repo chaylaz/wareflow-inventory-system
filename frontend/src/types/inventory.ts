@@ -30,3 +30,24 @@ export type Product = {
   createdAtUtc: string;
   updatedAtUtc: string | null;
 };
+
+export type StockStatus =
+  | "Available"
+  | "LowStock"
+  | "OutOfStock";
+
+export type InventoryStock = {
+  id: string;
+  productId: string;
+  productSku: string;
+  productName: string;
+  unit: string;
+  minimumStock: number;
+  warehouseId: string;
+  warehouseCode: string;
+  warehouseName: string;
+  quantity: number;
+  stockStatus: StockStatus;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
+};

@@ -8,6 +8,7 @@ import AppLayout from "./layouts/AppLayout";
 import CategoriesPage from "./pages/CategoriesPage";
 import DashboardPage from "./pages/DashboardPage";
 import ProductsPage from "./pages/ProductsPage";
+import StocksPage from "./pages/StocksPage";
 import WarehousesPage from "./pages/WarehousesPage";
 
 import "./App.css";
@@ -21,7 +22,10 @@ function App() {
         <Route
           index
           element={
-            <Navigate to="/dashboard" replace />
+            <Navigate
+              to="/dashboard"
+              replace
+            />
           }
         />
 
@@ -46,9 +50,17 @@ function App() {
         />
 
         <Route
+          path="/stocks"
+          element={<StocksPage />}
+        />
+
+        <Route
           path="*"
           element={
-            <Navigate to="/dashboard" replace />
+            <Navigate
+              to="/dashboard"
+              replace
+            />
           }
         />
       </Route>
