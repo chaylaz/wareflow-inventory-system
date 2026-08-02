@@ -8,6 +8,7 @@ import AppLayout from "./layouts/AppLayout";
 import CategoriesPage from "./pages/CategoriesPage";
 import DashboardPage from "./pages/DashboardPage";
 import ProductsPage from "./pages/ProductsPage";
+import StockHistoryPage from "./pages/StockHistoryPage";
 import StocksPage from "./pages/StocksPage";
 import WarehousesPage from "./pages/WarehousesPage";
 
@@ -52,6 +53,11 @@ function App() {
         <Route
           path="/stocks"
           element={<StocksPage />}
+        />
+
+        <Route
+          path="/stock-history"
+          element={<StockHistoryPage />}
         />
 
         <Route
